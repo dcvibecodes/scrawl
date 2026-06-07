@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 
@@ -10,6 +11,9 @@ let db;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from public directory for PWA
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize Database with virtual FTS5 tables for Fuzzy Search
 async function initDatabase() {
@@ -41,19 +45,51 @@ async function initDatabase() {
     console.log('SQLite Database and FTS5 Search Index ready.');
 }
 
+function escapeHtml(text) {
+    var map = {
+        '&': '\x26amp;',
+        '<': '\x26lt;',
+        '>': '\x26gt;',
+        '"': '\x26quot;',
+        "'": '\x26#039;'
+    };
+    return String(text).replace(/[&<>"']/g, function(c) { return map[c]; });
+}
+
+function generateId() {
+    try {
+        return crypto.randomUUID();
+    } catch {
+        return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    }
+}
+
+function formatDate(timestamp) {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+    });
+}
+
 function renderEntries(entries) {
     if (entries.length === 0) {
-        return `<p class="no-entries">No entries found.</p>`;
+        return `<p class="no-entries">Nothing here yet.</p>`;
     }
     return entries.map(entry => {
-        const dateStr = new Date(entry.timestamp).toLocaleString();
+        const dateStr = formatDate(entry.timestamp);
+        const fullDate = new Date(entry.timestamp).toLocaleString();
+        const safeContent = escapeHtml(entry.content);
         return `
             <div class="entry">
-                <div class="date">${dateStr}</div>
-                <div class="content">${entry.content}</div>
+                <div class="date" title="${fullDate}">
+                 ${dateStr}
+             </div>
+                <div class="content">${safeContent}</div>
                 <div class="actions">
+                    <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <a href="/edit/${entry.id}" class="edit-link">Edit</a>
-                    <form action="/delete/${entry.id}" method="POST" style="background:none; padding:0; margin:0; display:inline;">
+                    <form action="/delete/${entry.id}" method="POST" style="background:none; padding:0; margin:0; display:inline;" onsubmit="return confirm('Delete this post?')">
                         <button type="submit" class="delete-btn">Delete</button>
                     </form>
                 </div>
@@ -81,18 +117,25 @@ function renderTopFilters(archives, selectedYear, selectedMonth) {
         monthOptions += `<option value="${m}" ${selectedMonth === m ? 'selected' : ''}>${monthName}</option>`;
     });
 
+    let clearLink = '';
+    if (selectedYear || selectedMonth) {
+        clearLink = '<a href="/" class="clear-search">Clear Filters</a>';
+    }
+
     return `
         <div class="filter-bar">
             <select id="filter-year" aria-label="Filter by Year">${yearOptions}</select>
             <select id="filter-month" aria-label="Filter by Month">${monthOptions}</select>
             <button type="button" onclick="applyFilters()" class="filter-submit-btn">Filter</button>
-            ${(selectedYear || selectedMonth) ? `<a href="/" class="clear-search">Clear Filters</a>` : ''}
+            ${clearLink}
         </div>
     `;
 }
 
 // Global Stylesheet optimized for ultra-minimalist responsive mobile viewports
 const sharedStyles = `
+    * { box-sizing: border-box; }
+    html { width: 100%; overflow-x: hidden; }
     :root {
         --bg-body: #ffffff;
         --bg-card: #ffffff;
@@ -101,27 +144,49 @@ const sharedStyles = `
         --separator-color: #eeeeee;
     }
     [data-theme="dark"] {
-        --bg-body: #000000;
-        --bg-card: #000000;
-        --text-main: #e0e0e0;
-        --text-muted: #888888;
-        --separator-color: #222222;
+        --bg-body: #0f0f0f;
+        --bg-card: #0f0f0f;
+        --text-main: #e5e5e5;
+        --text-muted: #999999;
+        --separator-color: #1a1a1a;
     }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 650px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); transition: background 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+    html, body { overflow-x: hidden; overscroll-behavior-x: none; width: 100%; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); transition: background 0.2s, color 0.2s; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+    img, textarea, input, select, button { max-width: 100%; }
     header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 10px; }
     
-    .theme-toggle { background: none; border: 1px solid var(--text-main); color: var(--text-main); padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+    .header-controls {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    }
+    .theme-toggle {
+    background: none !important;
+    border: none;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 0;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.theme-toggle:hover {
+    color: var(--text-main);
+}
     
-    .container { width: 100%; margin-top: 20px; }
-    .main-content { width: 100%; }
+    .container { width: 100%; max-width: 100%; margin-top: 20px; }
+    .main-content { width: 100%; max-width: 100%; }
     
-    form, .edit-container, .search-container { background: var(--bg-card); padding: 0; margin-bottom: 30px; }
+    form, .edit-container, .search-container { background: var(--bg-card); padding: 0; margin-bottom: 30px; max-width: 100%; }
     
-    textarea { width: 100%; height: 50px; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; resize: none; overflow: hidden; display: block; }
-    input[type="text"] { width: 100%; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; }
+    textarea { width: 100%; max-width: 100%; height: 50px; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; resize: none; overflow: hidden; display: block; }
+    input[type="text"] { width: 100%; max-width: 100%; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 1rem; outline: none; }
     
     /* Mobile-responsive Filter Bar Dropdowns */
-    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 30px; padding-bottom: 5px; }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 30px; padding-bottom: 5px; max-width: 100%; }
     .filter-bar select { background: var(--bg-body); color: var(--text-main); border: 1px solid var(--separator-color); padding: 6px 12px; border-radius: 12px; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer; }
     
     /* Unified high-contrast buttons */
@@ -161,27 +226,151 @@ const sharedStyles = `
         color: #000000; 
     }
     
-    .search-form { display: flex; gap: 15px; align-items: center; }
-    .search-form button { margin-top: 0; }
+    .search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    }
+    .search-form input[type="text"] { flex: 1; min-width: 0; }
+    .search-form .search-icon-btn {
+    margin-top: 0;
+    }
     
-    .entry { background: var(--bg-card); padding: 0; padding-bottom: 25px; margin-bottom: 25px; border-bottom: 1px solid var(--separator-color); }
+    .entry { background: var(--bg-card); padding: 0; padding-bottom: 25px; margin-bottom: 25px; border-bottom: 1px solid var(--separator-color); max-width: 100%; }
     .entry:last-child { border-bottom: none; }
     
-    .date { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px; }
+    .date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.75;
+    margin-bottom: 12px;
+    }
     .actions { display: flex; gap: 15px; align-items: baseline; justify-content: flex-end; }
     
     .content { white-space: pre-wrap; line-height: 1.6; font-size: 1.05rem; margin-bottom: 12px; }
     
-    .edit-link { color: #1da1f2; text-decoration: none; font-weight: bold; font-size: 0.85rem; }
-    .edit-link:hover { text-decoration: underline; }
+    .edit-link { color: var(--text-muted); text-decoration: none; font-weight: bold; font-size: 0.85rem; transition: color 0.2s ease; }
+    .edit-link:hover { color: var(--text-main); }
     
-    .delete-btn { background: none; color: #ff4d4d; border: none; padding: 0; font-size: 0.85rem; font-weight: bold; cursor: pointer; margin: 0; }
-    .delete-btn:hover { text-decoration: underline; }
-    .cancel-btn { background: none; color: var(--text-muted); margin-left: 15px; font-weight: bold; }
-    .cancel-btn:hover { text-decoration: underline; }
+    .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: bold; cursor: pointer; appearance: none; -webkit-appearance: none; }
+    .delete-btn:hover { color: #ff7a7a; }
+    [data-theme="dark"] .delete-btn { background: none !important; color: #d96b6b; }
+    .cancel-btn {
+    background: none;
+    color: var(--text-muted);
+    margin-left: 15px;
+    font-weight: bold;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.cancel-btn:hover {
+    color: var(--text-main);
+    text-decoration: underline;
+}
     
-    .clear-search { font-size: 0.9rem; color: #1da1f2; text-decoration: none; margin-left: 5px; font-weight: 500; }
-    .no-entries { text-align: center; color: var(--text-muted); margin-top: 20px; }
+    .clear-search {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-left: 5px;
+    font-weight: 500;
+}
+
+.random-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.random-link:hover {
+    color: var(--text-main);
+}
+    
+.header-separator {
+    color: var(--text-muted);
+    opacity: 0.5;
+    margin: 0 6px;
+    user-select: none;
+}
+
+.back-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+}
+
+.back-link:hover {
+    color: var(--text-main);
+}
+
+.no-entries {
+    text-align: center;
+    color: var(--text-muted);
+    margin-top: 20px;
+}
+    
+    .permalink { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: bold; opacity: 0.5; }
+    .permalink:hover { opacity: 1; }
+    
+    .char-counter { font-size: 0.7rem; color: var(--text-muted); opacity: 0.6; margin-top: 4px; text-align: right; }
+    .shortcut-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 8px; margin-bottom: 10px; }
+    
+    .search-icon-btn {
+    background: none !important;
+    border: none !important;
+    padding: 0;
+    margin: 0;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+ }
+
+    .search-icon-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+
+    .search-icon-btn:hover {
+        opacity: 1;
+    }
+
+    [data-theme="dark"] .search-icon-btn {
+        background: none !important;
+        color: var(--text-muted);
+    }
+
+    .back-to-top {
+        position: fixed;
+        right: 16px;
+        bottom: 20px;
+        color: var(--text-main);
+        text-decoration: none;
+        font-size: 1.1rem;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        z-index: 1000;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .back-to-top.visible {
+        opacity: 0.6;
+    }
+
+    .back-to-top:hover {
+        opacity: 1;
+    }
 `;
 
 const themeScript = `
@@ -192,8 +381,10 @@ const themeScript = `
         if(toggleBtn) toggleBtn.textContent = 'Light';
     }
     if(toggleBtn) {
-        toggleBtn.addEventListener('click', () => {
-            let theme = 'light';
+    toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        let theme = 'light';
             if (document.documentElement.getAttribute('data-theme') !== 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
                 toggleBtn.textContent = 'Light';
@@ -218,11 +409,13 @@ const filterExecutionScript = `
             return;
         }
         
-        // Dynamic fallback selection routing
-        const targetYear = year || new Date().getFullYear().toString();
-        const targetMonth = month || "01";
-        
-        window.location.href = "/archive/" + targetYear + "/" + targetMonth;
+        if (year && month) {
+            window.location.href = "/archive/" + year + "/" + month;
+        } else if (year) {
+            window.location.href = "/archive/year/" + year;
+        } else if (month) {
+            window.location.href = "/archive/month/" + month;
+        }
     }
 `;
 
@@ -246,12 +439,25 @@ const layoutTemplate = ({ title, bodyContent }) => `
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Microblog">
+    <link rel="apple-touch-icon" href="/icon-192.svg">
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg">
+    <link rel="icon" type="image/svg+xml" href="/icon.svg">
+    <link rel="shortcut icon" href="/icon.svg">
     <style>${sharedStyles}</style>
 </head>
 <body>
     <header>
-        <h1><a href="/" style="color: inherit; text-decoration: none;">Microblog</a></h1>
-        <button id="themeToggle" class="theme-toggle">Dark</button>
+    <h1><a href="/" style="color: inherit; text-decoration: none;">Microblog</a></h1>
+
+    <div class="header-controls">
+    <a href="/random" class="random-link">Random</a>
+    <span class="header-separator">·</span>
+    <a href="#" id="themeToggle" class="theme-toggle">Dark</a>
+</div>
     </header>
     
     <div class="container">
@@ -261,9 +467,44 @@ const layoutTemplate = ({ title, bodyContent }) => `
     </div>
     <script>${themeScript}</script>
     <script>${filterExecutionScript}</script>
+    <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">↑</a>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var backToTop = document.getElementById('backToTop');
+            if (!backToTop) return;
+            window.addEventListener('scroll', function() {
+                if (window.scrollY > 500) {
+                    backToTop.classList.add('visible');
+                } else {
+                    backToTop.classList.remove('visible');
+                }
+            });
+            backToTop.addEventListener('click', function(e) {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    </script>
 </body>
 </html>
 `;
+
+// Helper to get archive list for filter dropdowns
+async function getArchives() {
+    return await db.all(`
+        SELECT strftime('%Y', timestamp / 1000, 'unixepoch') AS year,
+               strftime('%m', timestamp / 1000, 'unixepoch') AS month,
+               COUNT(*) AS count 
+        FROM entries 
+        GROUP BY year, month 
+        ORDER BY year DESC, month DESC
+    `);
+}
 
 // Routes
 
@@ -272,14 +513,7 @@ app.get('/', async (req, res) => {
         const searchQuery = req.query.q || '';
         let entries;
 
-        const archives = await db.all(`
-            SELECT strftime('%Y', timestamp / 1000, 'unixepoch') AS year,
-                   strftime('%m', timestamp / 1000, 'unixepoch') AS month,
-                   COUNT(*) AS count 
-            FROM entries 
-            GROUP BY year, month 
-            ORDER BY year DESC, month DESC
-        `);
+        const archives = await getArchives();
 
         if (searchQuery) {
             const formattedQuery = `${searchQuery.trim()}*`;
@@ -299,8 +533,13 @@ app.get('/', async (req, res) => {
         const bodyContent = `
             <div class="search-container">
                 <form action="/" method="GET" class="search-form">
-                    <input type="text" name="q" placeholder="Fuzzy search" value="${searchQuery}">
-                    <button type="submit">Search</button>
+                    <input type="text" name="q" id="search-field" placeholder="Fuzzy search" value="${escapeHtml(searchQuery)}">
+                    <button type="submit" class="search-icon-btn" aria-label="Search">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+                        </svg>
+                    </button>
                     ${searchQuery ? `<a href="/" class="clear-search">Clear</a>` : ''}
                 </form>
             </div>
@@ -309,6 +548,8 @@ app.get('/', async (req, res) => {
             
             <form action="/add" method="POST">
                 <textarea id="main-publish-box" name="content" placeholder="Share a thought..." required></textarea>
+                <div class="char-counter" id="char-counter">0 characters</div>
+                <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
                 <button type="submit">Publish</button>
             </form>
 
@@ -317,6 +558,32 @@ app.get('/', async (req, res) => {
             <script>
                 ${textareaAutoResizeScript}
                 attachAutoResize('main-publish-box');
+                
+                // Character counter
+                const publishBox = document.getElementById('main-publish-box');
+                const charCounter = document.getElementById('char-counter');
+                if (publishBox && charCounter) {
+                    publishBox.addEventListener('input', function() {
+                        charCounter.textContent = this.value.length + ' characters';
+                    });
+                }
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    const tag = e.target.tagName.toLowerCase();
+                    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                    
+                    if (e.key === 'n' || e.key === 'N') {
+                        e.preventDefault();
+                        const composeBox = document.getElementById('main-publish-box');
+                        if (composeBox) composeBox.focus();
+                    }
+                    if (e.key === '/') {
+                        e.preventDefault();
+                        const searchField = document.getElementById('search-field');
+                        if (searchField) searchField.focus();
+                    }
+                });
             </script>
         `;
 
@@ -326,18 +593,129 @@ app.get('/', async (req, res) => {
     }
 });
 
+app.get('/random', async (req, res) => {
+    try {
+        const entry = await db.get(`
+            SELECT id
+            FROM entries
+            ORDER BY RANDOM()
+            LIMIT 1
+        `);
+
+        if (!entry) {
+            return res.redirect('/');
+        }
+
+        res.redirect(`/post/${entry.id}`);
+    } catch (err) {
+        res.status(500).send('Error fetching random post.');
+    }
+});
+
+app.get('/post/:id', async (req, res) => {
+    try {
+        const entry = await db.get('SELECT * FROM entries WHERE id = ?', [req.params.id]);
+        if (!entry) return res.status(404).send("Post not found.");
+
+        const dateStr = formatDate(entry.timestamp);
+        const fullDate = new Date(entry.timestamp).toLocaleString();
+        const safeContent = escapeHtml(entry.content);
+
+        const bodyContent = `
+            <div class="entry" style="border-bottom: none;">
+                <div class="date" title="${fullDate}">
+                 ${dateStr}
+             </div>
+                <div class="content">${safeContent}</div>
+                <div class="actions">
+                    <a href="/edit/${entry.id}" class="edit-link">Edit</a>
+                    <form action="/delete/${entry.id}" method="POST" style="background:none; padding:0; margin:0; display:inline;" onsubmit="return confirm('Delete this post?')">
+                        <button type="submit" class="delete-btn">Delete</button>
+                    </form>
+                </div>
+            </div>
+            <p style="margin-top: 30px;"><a href="/" class="back-link">
+    &larr; Back
+        </a></p>
+        `;
+
+        res.send(layoutTemplate({ title: "Post", bodyContent }));
+    } catch (err) {
+        res.status(500).send("Error fetching post.");
+    }
+});
+
+// Archive: year only - shows all posts from a given year
+app.get('/archive/year/:year', async (req, res) => {
+    try {
+        const { year } = req.params;
+        const archives = await getArchives();
+
+        const entries = await db.all(`
+            SELECT * FROM entries 
+            WHERE strftime('%Y', timestamp / 1000, 'unixepoch') = ?
+            ORDER BY timestamp DESC
+        `, [year]);
+
+        const entriesHTML = renderEntries(entries);
+        const topFiltersHTML = renderTopFilters(archives, year, null);
+
+        const bodyContent = `
+            ${topFiltersHTML}
+
+            <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
+                Showing entries from ${year}
+                <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
+            </h2>
+            <div id="entries">${entriesHTML}</div>
+        `;
+
+        res.send(layoutTemplate({ title: `Archive - ${year}`, bodyContent }));
+    } catch (err) {
+        res.status(500).send("Error fetching year archive.");
+    }
+});
+
+// Archive: month only - shows all posts from a given month across all years
+app.get('/archive/month/:month', async (req, res) => {
+    try {
+        const { month } = req.params;
+        const archives = await getArchives();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthName = monthNames[parseInt(month, 10) - 1] || month;
+
+        const entries = await db.all(`
+            SELECT * FROM entries 
+            WHERE strftime('%m', timestamp / 1000, 'unixepoch') = ?
+            ORDER BY timestamp DESC
+        `, [month]);
+
+        const entriesHTML = renderEntries(entries);
+        const topFiltersHTML = renderTopFilters(archives, null, month);
+
+        const bodyContent = `
+            ${topFiltersHTML}
+
+            <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
+                Showing entries from ${monthName}
+                <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
+            </h2>
+            <div id="entries">${entriesHTML}</div>
+        `;
+
+        res.send(layoutTemplate({ title: `Archive - ${monthName}`, bodyContent }));
+    } catch (err) {
+        res.status(500).send("Error fetching month archive.");
+    }
+});
+
+// Archive: year and month combined
 app.get('/archive/:year/:month', async (req, res) => {
     try {
         const { year, month } = req.params;
-
-        const archives = await db.all(`
-            SELECT strftime('%Y', timestamp / 1000, 'unixepoch') AS year,
-                   strftime('%m', timestamp / 1000, 'unixepoch') AS month,
-                   COUNT(*) AS count 
-            FROM entries 
-            GROUP BY year, month 
-            ORDER BY year DESC, month DESC
-        `);
+        const archives = await getArchives();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthName = monthNames[parseInt(month, 10) - 1] || month;
 
         const entries = await db.all(`
             SELECT * FROM entries 
@@ -353,15 +731,15 @@ app.get('/archive/:year/:month', async (req, res) => {
             ${topFiltersHTML}
 
             <h2 style="margin-top: 10px; margin-bottom: 25px; font-size: 1rem; color: var(--text-muted); font-weight: normal;">
-                Showing entries from ${month}/${year} 
-                <a href="/" style="font-size:0.85rem; margin-left: 15px; color:#1da1f2; text-decoration:none; font-weight: bold;">Back to all</a>
+                Showing entries from ${monthName} ${year}
+                <a href="/" class="back-link" style="margin-left:15px;">Back to all</a>
             </h2>
             <div id="entries">${entriesHTML}</div>
         `;
 
-        res.send(layoutTemplate({ title: `Archive - ${month}/${year}`, bodyContent }));
+        res.send(layoutTemplate({ title: `Archive - ${monthName} ${year}`, bodyContent }));
     } catch (err) {
-        res.status(500).send("Error pulling structural monthly history logs.");
+        res.status(500).send("Error fetching archive.");
     }
 });
 
@@ -376,7 +754,7 @@ app.get('/edit/:id', async (req, res) => {
                     <textarea id="edit-box" name="content" required>${entry.content}</textarea>
                     <div>
                         <button type="submit">Update Post</button>
-                        <a href="/" class="btn cancel-btn">Cancel</a>
+                        <a href="/" class="cancel-btn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -406,7 +784,7 @@ app.post('/edit/:id', async (req, res) => {
 
 app.post('/add', async (req, res) => {
     try {
-        const id = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        const id = generateId();
         const content = req.body.content;
         const timestamp = Date.now();
 
