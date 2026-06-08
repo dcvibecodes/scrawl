@@ -138,6 +138,15 @@ function renderEntries(entries, isOwner) {
         const fullDate = new Date(entry.timestamp).toLocaleString();
         const safeContent = escapeHtml(entry.content);
 
+        const SNIPPET_LENGTH = 280;
+        const isLong = entry.content.length > SNIPPET_LENGTH;
+
+        const snippetContent = isLong
+            ? escapeHtml(entry.content.slice(0, SNIPPET_LENGTH)) + '...'
+            : safeContent;
+
+        const expandableClass = isLong ? ' expandable-content' : '';
+
         const ownerActions = isOwner ? `
                     <a href="/edit/${entry.id}" class="edit-link">edit</a>
                     <form action="/delete/${entry.id}" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
@@ -147,7 +156,13 @@ function renderEntries(entries, isOwner) {
         return `
             <div class="entry">
                 <div class="date" title="${fullDate}">${dateStr}</div>
-                <div class="content">${safeContent}</div>
+                <div class="content${expandableClass}"
+                data-expanded="false"
+                data-full="${entry.content
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')}">${snippetContent}</div>
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy</span>
@@ -248,7 +263,16 @@ const sharedStyles = `
     .entry:last-child { border-bottom: none; }
     .date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 12px; }
     .actions { display: flex; gap: 15px; align-items: baseline; justify-content: flex-end; }
-    .content { white-space: pre-wrap; line-height: 1.6; font-size: 1.05rem; margin-bottom: 12px; }
+    .content {
+        white-space: pre-wrap;
+        line-height: 1.6;
+        font-size: 1.05rem;
+        margin-bottom: 12px;
+    }
+
+    .expandable-content {
+        cursor: pointer;
+    }
     .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
     .edit-link:hover { color: var(--text-main); }
     .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
@@ -358,13 +382,23 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
         window.copyPermalink = function(el, id) {
             var entry = el.closest('.entry');
             var content = entry ? entry.querySelector('.content') : null;
-            var text = content ? content.textContent : '';
+
+            var text = '';
+
+            if (content) {
+                text = content.dataset.full || content.textContent;
+            }
+
             navigator.clipboard.writeText(text).then(function() {
                 el.textContent = 'copied';
-                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+                setTimeout(function() {
+                    el.textContent = 'copy';
+                }, 2000);
             }).catch(function() {
                 el.textContent = 'failed';
-                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+                setTimeout(function() {
+                    el.textContent = 'copy';
+                }, 2000);
             });
         };
 
@@ -414,13 +448,65 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
 
         // Delete handler with feedback
         window.handleDelete = function(form) {
-            if (!confirm('Delete this post?')) return false;
-            var btn = form.querySelector('.delete-btn');
-            if (btn) { btn.textContent = 'deleting...'; btn.disabled = true; }
-            var entry = form.closest('.entry');
-            if (entry) { entry.style.opacity = '0.5'; entry.style.transition = 'opacity 0.3s ease'; }
-            return true;
-        };
+
+    if (!confirm('Delete this post?')) {
+        return false;
+    }
+
+    var btn = form.querySelector('.delete-btn');
+    var entry = form.closest('.entry');
+
+    if (btn) {
+        btn.textContent = 'deleting...';
+        btn.disabled = true;
+    }
+
+    fetch(form.action, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(function(response) {
+
+        if (!response.ok) {
+            throw new Error('Delete failed');
+        }
+
+        if (entry) {
+
+            entry.style.transition =
+                'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
+
+            entry.style.opacity = '0';
+
+            setTimeout(function() {
+
+                entry.style.maxHeight = '0';
+                entry.style.marginBottom = '0';
+                entry.style.paddingBottom = '0';
+                entry.style.overflow = 'hidden';
+
+            }, 50);
+
+            setTimeout(function() {
+                entry.remove();
+            }, 250);
+        }
+
+    })
+    .catch(function() {
+
+        if (btn) {
+            btn.textContent = 'delete';
+            btn.disabled = false;
+        }
+
+        alert('Failed to delete post.');
+    });
+
+    return false;
+};
 
         // Filter button feedback
         var origApplyFilters = window.applyFilters;
@@ -453,6 +539,21 @@ const layoutTemplate = ({ title, bodyContent, isOwner }) => `
         }
 
         // Service Worker
+        // Expand truncated posts
+        document.querySelectorAll('.expandable-content').forEach(function(el) {
+
+            el.addEventListener('click', function() {
+
+                if (el.dataset.expanded === 'true') {
+                    return;
+                }
+
+                el.textContent = el.dataset.full;
+                el.dataset.expanded = 'true';
+                el.style.cursor = 'default';
+            });
+
+        });
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }
     })();
     </script>
@@ -890,7 +991,7 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                     </script>
                     <div>
                         <button type="submit">Update Post</button>
-                        <a href="/" class="cancel-btn">Cancel</a>
+                        <a href="/post/${entry.id}" class="cancel-btn">Cancel</a>
                     </div>
                 </form>
             </div>
@@ -934,8 +1035,17 @@ app.post('/delete/:id', requireOwner, async (req, res) => {
     try {
         await db.run('DELETE FROM entries WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM entries_fts WHERE id = ?', [req.params.id]);
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.json({ success: true });
+        }
+
         res.redirect('/');
     } catch (err) {
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.status(500).json({ success: false });
+        }
+
         res.status(500).send('Error deleting post.');
     }
 });

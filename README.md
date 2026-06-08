@@ -1,6 +1,6 @@
 # Microblog
 
-**Version 1.2**
+**Version 1.3**
 
 A minimalist microblogging and note-taking platform built for people who prefer writing over scrolling.
 
@@ -52,6 +52,8 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - Edit existing posts
 - Delete posts with confirmation and visual feedback
 - Permanent links for individual entries
+- Inline post expansion for long posts
+- Full-post copying even when previews are truncated
 
 ### Mobile Friendly
 
@@ -130,6 +132,29 @@ If you forget your password, delete the file `data/owner.hash` from the server a
 ---
 
 ## Changelog
+
+### Version 1.3
+
+#### Added
+
+* Expandable post previews for long entries
+* Inline expansion without page reloads
+* Full-post copying from previews without requiring expansion
+* Pagination with "Load More" navigation
+* Improved editing workflow with cancel returning to the post permalink
+
+#### Improved
+
+* Reduced homepage clutter for long-form writing
+* Faster browsing through large archives
+* Better reading experience on mobile devices
+* Cleaner handling of long posts while preserving the minimalist interface
+
+#### Fixed
+
+* Preview expansion now preserves original post formatting
+* Copy action correctly copies the complete post instead of the visible preview
+* Removed layout shifts and spacing inconsistencies when expanding posts
 
 ### Version 1.2
 
