@@ -622,7 +622,6 @@ const archives = await getArchives();
                 ORDER BY entries.timestamp DESC
             `, [formattedQuery]);
         } else {
-    const PAGE_SIZE = 50;
     entries = await db.all(
     'SELECT * FROM entries ORDER BY timestamp DESC LIMIT ? OFFSET ?',
     [PAGE_SIZE, offset]
@@ -658,8 +657,8 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                     </script>
                     <div class="char-counter" id="char-counter">0 words &middot; 0 characters</div>
                     <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
-                    <button type="submit">Publish</button>
-                </form>
+                        <button type="submit">Publish</button>
+                    </form>
             `;
         } else {
             publishSection = `
