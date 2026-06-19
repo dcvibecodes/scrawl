@@ -364,16 +364,18 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle }) =>  `
 </head>
 <body>
     <header>
-        <h1 style="display:flex;align-items:center;gap:8px;">
-            <a href="/" id="blogTitle" style="color:inherit;text-decoration:none;">
-                ${escapeHtml(blogTitle)}
-            </a>
+        <div>
+            <h1 style="margin-bottom:4px;">
+                <a href="/" id="blogTitle" style="color:inherit;text-decoration:none;">
+                    ${escapeHtml(blogTitle)}
+                </a>
+            </h1>
 
             ${isOwner
-                ? '<a href="#" id="editBlogTitle" class="edit-link">edit</a>'
+                ? '<div><a href="#" id="editBlogTitle" class="edit-link">edit</a></div>'
                 : ''
             }
-        </h1>
+        </div>
         <div class="header-controls">
             <a href="/random" class="random-link">Random</a>
             <span class="header-separator">&middot;</span>
