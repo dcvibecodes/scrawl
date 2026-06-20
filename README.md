@@ -1,6 +1,6 @@
 # Microblog
 
-**Version 1.4**
+**Version 1.5**
 
 A minimalist microblogging and note-taking platform built for people who prefer writing over scrolling.
 
@@ -16,8 +16,8 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - Fast post creation
 - Auto-expanding text editor
 - Character and word counter
-- Keyboard shortcuts
-- Button feedback on publish, edit, delete, and filter actions
+- Keyboard shortcuts (desktop only)
+- Button feedback on publish, edit, and delete actions
 
 ### Owner Authentication
 
@@ -27,53 +27,63 @@ Microblog is designed to feel like a personal notebook: fast, distraction-free, 
 - bcrypt-hashed password storage (12 rounds, salted)
 - HMAC-signed session cookies (httpOnly, sameSite strict)
 - 7-day session persistence
-- Grayed-out publish box for visitors with login prompt
 
 ### Search
 
-- Fuzzy full-text search powered by SQLite FTS5
-- Instant access to old thoughts and notes
-- Search directly from the homepage
+- Full-text search powered by SQLite FTS5 with BM25 relevance ranking
+- Multi-word prefix matching with proper sanitization of special characters
+- Result count displayed for active queries
+- Search accessible from every page via header icon or `/` keyboard shortcut
+- Full-screen overlay search bar with smooth animation
 
 ### Customization
 
-- Custom blog title
-- Inline title editing for owners
+- Custom blog title (editable from gear menu)
 - Title persists across server restarts
-- Default title remains "Microblog"
 
 ### Archives
 
-- Filter by year
-- Filter by month
-- Browse historical entries
-- Quickly rediscover older ideas
+- Dedicated archive index page with year/month grouping and post counts
+- Browse by year, month, or year+month combination
+- Navigate directly to any time period
+
+### All Posts
+
+- Paginated view (200 posts per page) for browsing the full archive
+- Newer/Older navigation
 
 ### Random Discovery
 
-- Open a random post from your archive
-- Rediscover forgotten thoughts and notes
+- Random post link in navigation
+- Dedicated icon on mobile for quick access
 
 ### Editing
 
-- Edit existing posts
-- Delete posts with confirmation and visual feedback
+- Edit existing posts with inline "update" link
+- Delete posts with confirmation and visual fade-out
 - Permanent links for individual entries
-- Inline post expansion for long posts
+- Inline post expansion for long posts (280+ characters)
 - Full-post copying even when previews are truncated
 
 ### Mobile Friendly
 
-- Responsive design
+- Responsive design with hamburger menu navigation
+- Random and search icons always accessible in header
 - No horizontal scrolling
-- Works well on phones and tablets
 - Progressive Web App (PWA) support
-- Optimized header layout for narrow screens
+- Keyboard shortcut hints hidden on mobile
 
 ### Dark Mode
 
-- Light and dark themes
+- Light and dark themes accessible from gear menu (desktop) or hamburger menu (mobile)
 - Theme preference saved locally
+
+### LLM Discoverability
+
+- Dynamic sitemap at `/sitemap.xml`
+- JSON API at `/api/posts` returning all posts with metadata
+- `<link rel="alternate">` tag for machine-readable discovery
+- Designed for LLM browsing agents to find and index all content
 
 ---
 
@@ -89,17 +99,7 @@ The goal is simple:
 - Find them later
 - Stay out of the way
 
-No timelines.
-
-No followers.
-
-No algorithms.
-
-No engagement metrics.
-
-No notifications.
-
-No unnecessary features.
+No timelines. No followers. No algorithms. No engagement metrics. No notifications. No unnecessary features.
 
 Just writing.
 
@@ -110,7 +110,24 @@ Just writing.
 | Shortcut | Action                |
 | -------- | --------------------- |
 | N        | Focus new post editor |
-| /        | Focus search box      |
+| /        | Open search           |
+| Escape   | Close search          |
+
+---
+
+## Navigation
+
+### Desktop
+
+`all · archive · random · 🔍 · ⚙`
+
+The gear menu contains: edit title, theme toggle, logout/login.
+
+### Mobile
+
+`Title ... 🔀 🔍 ☰`
+
+The hamburger menu contains: all, archive, edit title, theme toggle, logout/login.
 
 ---
 
@@ -126,25 +143,52 @@ Just writing.
 
 ---
 
+## API
+
+### JSON Posts Endpoint
+
+```
+GET /api/posts
+```
+
+Returns all posts as JSON:
+
+```json
+{
+  "title": "Microblog",
+  "total": 150,
+  "posts": [
+    {
+      "id": "uuid",
+      "content": "Post text...",
+      "date": "2026-06-14T12:00:00.000Z",
+      "url": "https://yourdomain.com/post/uuid"
+    }
+  ]
+}
+```
+
+### Sitemap
+
+```
+GET /sitemap.xml
+```
+
+Dynamic XML sitemap listing all post URLs, the archive, all posts page, and API endpoint.
+
+---
+
 ## Search Engine Indexing
 
-By default, Microblog is configured to prevent search engines from indexing your content.
-
-The application includes the following meta tag in `server.js`:
+By default, Microblog prevents search engines from indexing your content:
 
 ```html
 <meta name="robots" content="noindex, nofollow">
 ```
 
-This is intentional. Microblog is designed primarily as a personal notebook, journal, or knowledge archive rather than a public content platform.
+This is intentional. Microblog is designed as a personal notebook rather than a public content platform.
 
-If you want your Microblog instance to be indexed by Google and other search engines, remove the following line from the `<head>` section of `layoutTemplate()` in `server.js`:
-
-```html
-<meta name="robots" content="noindex, nofollow">
-```
-
-After removing the tag and redeploying, search engines will be allowed to index your content according to their normal crawling policies.
+To allow indexing, remove this meta tag from `layoutTemplate()` in `server.js`.
 
 ---
 
@@ -160,11 +204,48 @@ After removing the tag and redeploying, search engines will be allowed to index 
 
 ### Password Reset
 
-If you forget your password, delete the file `data/owner.hash` from the server and restart. The app will redirect you to `/setup` to set a new password.
+Delete `data/owner.hash` and restart the server. You'll be redirected to `/setup` to set a new password.
 
 ---
 
 ## Changelog
+
+### Version 1.5
+
+#### Added
+
+- Improved search: multi-word prefix matching, BM25 relevance ranking, special character sanitization
+- Search result count displayed for active queries
+- Full-screen search overlay accessible from header on all pages
+- Gear menu (⚙) for admin actions: edit title, theme toggle, logout
+- Gear menu shown for visitors too (with theme toggle and login)
+- Archive index page with year/month grouping and post counts
+- All Posts page with pagination (200 per page)
+- JSON API endpoint (`/api/posts`) for LLM discoverability
+- Dynamic sitemap (`/sitemap.xml`)
+- `<link rel="alternate">` meta tag for machine-readable API discovery
+- Hamburger menu on mobile with consistent navigation
+- Random post icon on mobile header
+- Escape key closes search
+
+#### Improved
+
+- Header simplified: `all · archive · random · 🔍 · ⚙`
+- All navigation links and action links use consistent lowercase styling
+- Removed year/month filter dropdowns (replaced by archive page)
+- Login prompt for visitors (no more grayed-out textarea)
+- Login page stretched to full width
+- Edit page uses lightweight link-style actions instead of heavy buttons
+- Textarea auto-resize no longer causes scroll jumps
+- Keyboard shortcut hints hidden on mobile
+- Consistent font sizes across nav links, back links, and action links
+- Removed dead CSS and unused code
+
+#### Fixed
+
+- Search no longer crashes on special characters
+- Search no longer fails silently on multi-word queries
+- Textarea editing no longer jumps page to top when content shrinks
 
 ### Version 1.4
 
@@ -176,80 +257,44 @@ If you forget your password, delete the file `data/owner.hash` from the server a
 
 #### Improved
 
-- Simplified search terminology ("Search" instead of "Fuzzy Search")
-- Improved consistency between search and post composer placeholders
+- Simplified search terminology
 - Better branding flexibility for self-hosted instances
-
-#### Fixed
-
-- Blog title now remains configurable without modifying source code
 
 ### Version 1.3
 
 #### Added
 
-* Expandable post previews for long entries
-* Inline expansion without page reloads
-* Full-post copying from previews without requiring expansion
-* Pagination with "Load More" navigation
-* Improved editing workflow with cancel returning to the post permalink
+- Expandable post previews for long entries
+- Inline expansion without page reloads
+- Full-post copying from previews
+- Pagination with "Load More" navigation
 
 #### Improved
 
-* Reduced homepage clutter for long-form writing
-* Faster browsing through large archives
-* Better reading experience on mobile devices
-* Cleaner handling of long posts while preserving the minimalist interface
-
-#### Fixed
-
-* Preview expansion now preserves original post formatting
-* Copy action correctly copies the complete post instead of the visible preview
-* Removed layout shifts and spacing inconsistencies when expanding posts
+- Reduced homepage clutter for long-form writing
+- Faster browsing through large archives
+- Better reading experience on mobile
 
 ### Version 1.2
 
 #### Added
 
 - Owner authentication with bcrypt password hashing
-- One-time `/setup` flow for first-time password creation
+- One-time `/setup` flow
 - Login/logout with signed session cookies
-- Grayed-out publish box for unauthenticated visitors
-- "Login" link in header and below disabled publish area
-- Server-side `requireOwner` middleware on all write routes
-- Button feedback: "Publishing...", "Updating...", "deleting...", "Filtering..."
-- Delete button shows "deleting..." with entry fade-out
-- Responsive header tightening for very narrow screens
-
-#### Security
-
-- Passwords hashed with bcryptjs (12 rounds)
-- Session tokens are HMAC-SHA256 signed with auto-generated secret
-- Cookies are httpOnly + sameSite strict
-- Timing-safe comparison for session validation
-- No plaintext credentials stored anywhere
+- Server-side `requireOwner` middleware
+- Button feedback on actions
+- Delete fade-out animation
 
 ### Version 1.1
 
 #### Added
 
 - Random post navigation
-- Dark mode UI refinements
-- Improved search icon
-- Improved mobile responsiveness
+- Dark mode
 - Back-to-top navigation
-- Consistent archive navigation
-- MM/DD/YYYY date formatting
-- Cleaner action links
-- Improved dark mode styling
-
-#### Improved
-
-- Reduced visual clutter
-- More consistent typography
-- More cohesive monochrome design language
-- Better mobile experience
-- Cleaner archive browsing
+- Archive navigation
+- Improved mobile responsiveness
 
 ---
 
@@ -262,19 +307,11 @@ npm install
 npm start
 ```
 
-The application will be available at:
-
-```
-http://localhost:3000
-```
-
-On first visit, you'll be redirected to `/setup` to create your owner password.
+Available at `http://localhost:3000`. On first visit, you'll be redirected to `/setup` to create your owner password.
 
 ---
 
 ## Who Is This For?
-
-Microblog is ideal for:
 
 - Writers
 - Journalers
