@@ -991,7 +991,7 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                     <textarea
                         id="main-publish-box"
                         name="content"
-                        placeholder="Share a thought..."
+                        placeholder="Post a thought..."
                         required
                         oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
                     ></textarea>
