@@ -431,9 +431,9 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
         </div>
         <div class="header-controls">
         <div class="desktop-nav">
-            <a href="/archive" class="random-link">archive</a>
-            <span class="header-separator">&middot;</span>
             <a href="/random" class="random-link">random</a>
+            <span class="header-separator">&middot;</span>
+            <a href="/archive" class="random-link">archive</a>
         </div>
             <a href="/random" class="mobile-random-btn" aria-label="Random">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
