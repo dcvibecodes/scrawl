@@ -343,6 +343,14 @@ const sharedStyles = `
     .mobile-random-btn { display: none; color: var(--text-muted); opacity: 0.6; line-height: 1; }
     .mobile-random-btn:hover { opacity: 1; }
     .mobile-random-btn svg { width: 16px; height: 16px; display: block; }
+    .mobile-random-btn.loading svg {
+    animation: spin 1s linear infinite;
+}
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
     .hamburger-btn { display: none; background: none !important; border: none; padding: 0; margin: 0; cursor: pointer; color: var(--text-muted); opacity: 0.7; line-height: 1; }
     .hamburger-btn:hover { opacity: 1; }
     .hamburger-btn svg { width: 20px; height: 20px; display: block; }
@@ -637,6 +645,23 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
             window.addEventListener('load', resize);
             resize();
         };
+
+        // Random link feedback
+        document.querySelectorAll('a[href="/random"]').forEach(function(link) {
+            link.addEventListener('click', function() {
+
+                // Mobile icon version
+                if (link.classList.contains('mobile-random-btn')) {
+                    link.classList.add('loading');
+                    link.style.pointerEvents = 'none';
+                    return;
+                }
+
+                // Desktop text version
+                link.textContent = 'randomizing...';
+                link.style.pointerEvents = 'none';
+            });
+        });
 
         // Publishing button feedback
         var addForms = document.querySelectorAll('form[action="/add"]');
