@@ -629,7 +629,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
         addForms.forEach(function(form) {
             form.addEventListener('submit', function() {
                 var btn = form.querySelector('button[type="submit"]');
-                if (btn) { btn.textContent = 'Publishing...'; btn.disabled = true; }
+                if (btn) { btn.textContent = 'Posting...'; btn.disabled = true; }
             });
         });
 
@@ -1004,7 +1004,7 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                     <div class="char-counter" id="char-counter">0 words &middot; 0 characters</div>
                     <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
                     <div class="publish-row">
-                        <button type="submit">Publish</button>
+                        <button type="submit">Post</button>
                     </div>
                 </form>
             `;
