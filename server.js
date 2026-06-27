@@ -1279,7 +1279,9 @@ app.get('/archive', async (req, res) => {
     try {
         const archives = await getArchives();
         const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
+        const { count: totalPosts } = await db.get(
+            'SELECT COUNT(*) AS count FROM entries'
+        );
         let archiveHTML = '';
         let currentYear = null;
 
@@ -1304,7 +1306,7 @@ app.get('/archive', async (req, res) => {
 
         const bodyContent = `
             <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">
-                Archive
+                Archive <span style="font-size:0.9rem;color:var(--text-muted);opacity:0.75;">(${totalPosts} posts)</span>
             </h2>
             ${archiveHTML}
         `;
