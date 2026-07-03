@@ -413,6 +413,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="${escapeHtml(blogTitle)}">
     <meta name="theme-color" content="#1a1a1a">
+    <link rel="apple-touch-icon" sizes="180x180" media="(prefers-color-scheme: light)" href="/apple-touch-icon-light.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
