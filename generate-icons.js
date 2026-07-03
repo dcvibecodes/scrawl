@@ -3,9 +3,9 @@ const path = require('path');
 
 const publicDir = path.join(__dirname, 'public');
 
-function createIconSvg({ light = false, size = 512 } = {}) {
-    const bg = light ? '#ffffff' : '#1a1a1a';
-    const fg = light ? '#1a1a1a' : '#e5e5e5';
+function createIconSvg({ size = 512 } = {}) {
+    const bg = '#1a1a1a';
+    const fg = '#e5e5e5';
     const scale = size / 512;
     const s = n => Math.round(n * scale * 1000) / 1000;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
@@ -29,18 +29,13 @@ async function generate() {
     }
 
     const darkSvg = createIconSvg();
-    const lightSvg = createIconSvg({ light: true });
     fs.writeFileSync(path.join(publicDir, 'icon.svg'), darkSvg);
-    fs.writeFileSync(path.join(publicDir, 'icon-light.svg'), lightSvg);
     fs.writeFileSync(path.join(publicDir, 'favicon.svg'), createIconSvg({ size: 32 }));
 
     const sizes = [
         { name: 'icon-512.png', size: 512, svg: darkSvg },
         { name: 'icon-192.png', size: 192, svg: darkSvg },
         { name: 'apple-touch-icon.png', size: 180, svg: darkSvg },
-        { name: 'icon-light-512.png', size: 512, svg: lightSvg },
-        { name: 'icon-light-192.png', size: 192, svg: lightSvg },
-        { name: 'apple-touch-icon-light.png', size: 180, svg: lightSvg },
         { name: 'favicon-32.png', size: 32, svg: darkSvg },
         { name: 'favicon-16.png', size: 16, svg: darkSvg }
     ];
