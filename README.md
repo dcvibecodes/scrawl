@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.1.0**
+**Version 2.2.0**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -187,6 +187,20 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.2.0
+
+#### Added
+
+- Keyboard shortcuts in article editor: Ctrl+B (bold), Ctrl+I (italic), Ctrl+U (underline)
+- Toggle behavior for all formatting: clicking H2, H3, or Blockquote again reverts to normal text
+- Active state indicators on toolbar buttons — buttons highlight when their formatting is active at the cursor position
+- Link editing and removal via the link toolbar button (shows current URL, option to edit or remove)
+- Sticky editor toolbar — formatting buttons stay pinned at the top when scrolling long articles
+
+#### Fixed
+
+- Sticky toolbar now works correctly (switched `overflow-x: hidden` to `overflow-x: clip` to avoid breaking `position: sticky`)
 
 ### Version 2.1.0
 

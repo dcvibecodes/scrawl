@@ -1872,8 +1872,10 @@ const articleStyles = `
     .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; }
     .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; }
     .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
+    .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
     [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
     [data-theme="dark"] .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
+    [data-theme="dark"] .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
     .article-content-editor { min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: inherit; font-size: 1rem; line-height: 1.6; color: var(--text-main); }
     .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
     .article-body { white-space: pre-wrap; line-height: 1.6; font-size: 1.01rem; }
@@ -1975,15 +1977,15 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 <input type="date" id="article-date" value="${today}" style="padding:8px 0;background:var(--bg-body);color:var(--text-main);border:none;border-bottom:1px solid var(--separator-color);font-family:inherit;font-size:0.85rem;outline:none;">
             </div>
             <div class="article-editor-toolbar">
-                <button type="button" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
-                <button type="button" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
-                <button type="button" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
-                <button type="button" onclick="insertLink()" title="Insert link">&#128279;</button>
-                <button type="button" onclick="execHeading('h2')" title="Heading 2">H2</button>
-                <button type="button" onclick="execHeading('h3')" title="Heading 3">H3</button>
-                <button type="button" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
-                <button type="button" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
-                <button type="button" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                <button type="button" data-cmd="bold" onclick="execCmd('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button type="button" data-cmd="italic" onclick="execCmd('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
+                <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+                <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
+                <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
+                <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
+                <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
+                <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
+                <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
@@ -1996,15 +1998,91 @@ app.get('/articles/new', requireOwner, (req, res) => {
         function execCmd(cmd) {
             document.execCommand(cmd, false, null);
             document.getElementById('article-content').focus();
+            updateToolbarState();
         }
         function execHeading(tag) {
-            document.execCommand('formatBlock', false, '<' + tag + '>');
-            document.getElementById('article-content').focus();
+            var editor = document.getElementById('article-content');
+            // Check if currently in this heading — if so, toggle off to normal paragraph
+            var block = getCurrentBlock();
+            if (block && block.tagName === tag.toUpperCase()) {
+                document.execCommand('formatBlock', false, '<div>');
+            } else {
+                document.execCommand('formatBlock', false, '<' + tag + '>');
+            }
+            editor.focus();
+            updateToolbarState();
         }
         function execQuote() {
-            document.execCommand('formatBlock', false, '<blockquote>');
+            var block = getCurrentBlock();
+            if (block && block.tagName === 'BLOCKQUOTE') {
+                document.execCommand('formatBlock', false, '<div>');
+            } else {
+                document.execCommand('formatBlock', false, '<blockquote>');
+            }
             document.getElementById('article-content').focus();
+            updateToolbarState();
         }
+        function getCurrentBlock() {
+            var sel = window.getSelection();
+            if (!sel.rangeCount) return null;
+            var node = sel.anchorNode;
+            var editor = document.getElementById('article-content');
+            while (node && node !== editor) {
+                if (node.nodeType === 1 && /^(H2|H3|BLOCKQUOTE|DIV|P)$/.test(node.tagName)) return node;
+                node = node.parentNode;
+            }
+            return null;
+        }
+        function updateToolbarState() {
+            var toolbar = document.querySelector('.article-editor-toolbar');
+            if (!toolbar) return;
+            var buttons = toolbar.querySelectorAll('button[data-cmd]');
+            buttons.forEach(function(btn) {
+                var cmd = btn.getAttribute('data-cmd');
+                var active = false;
+                if (cmd === 'bold') active = document.queryCommandState('bold');
+                else if (cmd === 'italic') active = document.queryCommandState('italic');
+                else if (cmd === 'underline') active = document.queryCommandState('underline');
+                else if (cmd === 'insertOrderedList') active = document.queryCommandState('insertOrderedList');
+                else if (cmd === 'insertUnorderedList') active = document.queryCommandState('insertUnorderedList');
+                else if (cmd === 'h2' || cmd === 'h3') {
+                    var block = getCurrentBlock();
+                    active = block && block.tagName === cmd.toUpperCase();
+                }
+                else if (cmd === 'blockquote') {
+                    var block = getCurrentBlock();
+                    active = block && block.tagName === 'BLOCKQUOTE';
+                }
+                else if (cmd === 'link') {
+                    var sel = window.getSelection();
+                    if (sel.rangeCount > 0) {
+                        var node = sel.anchorNode;
+                        var editor = document.getElementById('article-content');
+                        while (node && node !== editor) {
+                            if (node.tagName === 'A') { active = true; break; }
+                            node = node.parentNode;
+                        }
+                    }
+                }
+                if (active) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+        // Update toolbar state on selection change
+        document.addEventListener('selectionchange', function() {
+            var editor = document.getElementById('article-content');
+            if (editor && editor.contains(document.activeElement) || editor.contains(window.getSelection().anchorNode)) {
+                updateToolbarState();
+            }
+        });
+        // Keyboard shortcuts
+        document.getElementById('article-content').addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'b' || e.key === 'B') { e.preventDefault(); execCmd('bold'); }
+                else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); execCmd('italic'); }
+                else if (e.key === 'u' || e.key === 'U') { e.preventDefault(); execCmd('underline'); }
+            }
+        });
         function insertLink() {
             var sel = window.getSelection();
             var anchor = null;
@@ -2252,15 +2330,15 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <input type="date" id="article-date" value="${articleDate}" style="padding:8px 0;background:var(--bg-body);color:var(--text-main);border:none;border-bottom:1px solid var(--separator-color);font-family:inherit;font-size:0.85rem;outline:none;">
                 </div>
                 <div class="article-editor-toolbar">
-                    <button type="button" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
-                    <button type="button" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
-                    <button type="button" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
-                    <button type="button" onclick="insertLink()" title="Insert link">&#128279;</button>
-                    <button type="button" onclick="execHeading('h2')" title="Heading 2">H2</button>
-                    <button type="button" onclick="execHeading('h3')" title="Heading 3">H3</button>
-                    <button type="button" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
-                    <button type="button" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
-                    <button type="button" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                    <button type="button" data-cmd="bold" onclick="execCmd('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
+                    <button type="button" data-cmd="italic" onclick="execCmd('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
+                    <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+                    <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
+                    <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
+                    <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
+                    <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
+                    <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
+                    <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
                 </div>
                 <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
                 <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
@@ -2275,15 +2353,88 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
             function execCmd(cmd) {
                 document.execCommand(cmd, false, null);
                 document.getElementById('article-content').focus();
+                updateToolbarState();
             }
             function execHeading(tag) {
-                document.execCommand('formatBlock', false, '<' + tag + '>');
-                document.getElementById('article-content').focus();
+                var editor = document.getElementById('article-content');
+                var block = getCurrentBlock();
+                if (block && block.tagName === tag.toUpperCase()) {
+                    document.execCommand('formatBlock', false, '<div>');
+                } else {
+                    document.execCommand('formatBlock', false, '<' + tag + '>');
+                }
+                editor.focus();
+                updateToolbarState();
             }
             function execQuote() {
-                document.execCommand('formatBlock', false, '<blockquote>');
+                var block = getCurrentBlock();
+                if (block && block.tagName === 'BLOCKQUOTE') {
+                    document.execCommand('formatBlock', false, '<div>');
+                } else {
+                    document.execCommand('formatBlock', false, '<blockquote>');
+                }
                 document.getElementById('article-content').focus();
+                updateToolbarState();
             }
+            function getCurrentBlock() {
+                var sel = window.getSelection();
+                if (!sel.rangeCount) return null;
+                var node = sel.anchorNode;
+                var editor = document.getElementById('article-content');
+                while (node && node !== editor) {
+                    if (node.nodeType === 1 && /^(H2|H3|BLOCKQUOTE|DIV|P)$/.test(node.tagName)) return node;
+                    node = node.parentNode;
+                }
+                return null;
+            }
+            function updateToolbarState() {
+                var toolbar = document.querySelector('.article-editor-toolbar');
+                if (!toolbar) return;
+                var buttons = toolbar.querySelectorAll('button[data-cmd]');
+                buttons.forEach(function(btn) {
+                    var cmd = btn.getAttribute('data-cmd');
+                    var active = false;
+                    if (cmd === 'bold') active = document.queryCommandState('bold');
+                    else if (cmd === 'italic') active = document.queryCommandState('italic');
+                    else if (cmd === 'underline') active = document.queryCommandState('underline');
+                    else if (cmd === 'insertOrderedList') active = document.queryCommandState('insertOrderedList');
+                    else if (cmd === 'insertUnorderedList') active = document.queryCommandState('insertUnorderedList');
+                    else if (cmd === 'h2' || cmd === 'h3') {
+                        var block = getCurrentBlock();
+                        active = block && block.tagName === cmd.toUpperCase();
+                    }
+                    else if (cmd === 'blockquote') {
+                        var block = getCurrentBlock();
+                        active = block && block.tagName === 'BLOCKQUOTE';
+                    }
+                    else if (cmd === 'link') {
+                        var sel = window.getSelection();
+                        if (sel.rangeCount > 0) {
+                            var node = sel.anchorNode;
+                            var editor = document.getElementById('article-content');
+                            while (node && node !== editor) {
+                                if (node.tagName === 'A') { active = true; break; }
+                                node = node.parentNode;
+                            }
+                        }
+                    }
+                    if (active) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                });
+            }
+            document.addEventListener('selectionchange', function() {
+                var editor = document.getElementById('article-content');
+                if (editor && editor.contains(document.activeElement) || editor.contains(window.getSelection().anchorNode)) {
+                    updateToolbarState();
+                }
+            });
+            document.getElementById('article-content').addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 'b' || e.key === 'B') { e.preventDefault(); execCmd('bold'); }
+                    else if (e.key === 'i' || e.key === 'I') { e.preventDefault(); execCmd('italic'); }
+                    else if (e.key === 'u' || e.key === 'U') { e.preventDefault(); execCmd('underline'); }
+                }
+            });
             function insertLink() {
                 var sel = window.getSelection();
                 var anchor = null;
