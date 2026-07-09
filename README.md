@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.2.0**
+**Version 2.3.0**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -187,6 +187,23 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.3.0
+
+#### Changed
+
+- Article editor now uses `<p>` paragraphs instead of `<br>` for Enter key — proper paragraph spacing shows immediately while editing
+- Enter = new paragraph, Shift+Enter = line break within paragraph
+- Added ↵ (line break) button to toolbar for mobile and desktop users
+- Editor hint below content area explains Enter vs line break behavior
+- Article display uses proper paragraph rendering (removed `white-space: pre-wrap`)
+- Plain text paste: double newlines become paragraphs, single newlines become line breaks
+
+#### Fixed
+
+- First Enter in a new article now shows paragraph spacing immediately (previously looked like a line break until saved)
+- Cursor no longer appears on a wrong line when editor is empty
+- Old articles with `<br>`-based content are auto-wrapped in `<p>` on edit
 
 ### Version 2.2.0
 

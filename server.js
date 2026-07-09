@@ -237,45 +237,37 @@ function generateId() {
 function sanitizeArticleHtml(html) {
     if (!html) return '';
     let result = html
-        // Normalize: convert <p>...</p> blocks into content followed by double <br>
-        // First handle </p><p> transitions (paragraph break)
-        .replace(/<\/p>\s*<p[^>]*>/gi, '<br><br>')
-        // Opening <p> at the start — just remove it
-        .replace(/^\s*<p[^>]*>/gi, '')
-        // Any remaining <p> tags (mid-content) — treat as line break
-        .replace(/<p[^>]*>/gi, '<br><br>')
-        // Closing </p> — treat as line break (handles final paragraph)
-        .replace(/<\/p>/gi, '')
-        // Convert div breaks to <br> for consistent rendering
-        .replace(/<\/div>\s*<div[^>]*>/gi, '<br>')
-        .replace(/<div><br\s*\/?><\/div>/gi, '<br>')
-        .replace(/<div[^>]*>/gi, '<br>')
-        .replace(/<\/div>/gi, '')
-        // Strip all tags except allowed ones (b, i, u, a, br, h2, h3, ol, ul, li, blockquote)
+        // Convert <div> to <p> for consistency (browsers sometimes use divs)
+        .replace(/<div><br\s*\/?><\/div>/gi, '</p><p>')
+        .replace(/<\/div>\s*<div[^>]*>/gi, '</p><p>')
+        .replace(/<div[^>]*>/gi, '<p>')
+        .replace(/<\/div>/gi, '</p>')
+        // Downgrade h1 to h2
         .replace(/<h1[^>]*>/gi, '<h2>')
         .replace(/<\/h1>/gi, '</h2>')
-        .replace(/<(?!\/?(b|i|u|a|br|h[23]|ol|ul|li|blockquote)\b)[^>]*>/gi, '')
-        // Remove all attributes from b, i, u, br, h2, h3, ol, ul, li, blockquote
-        .replace(/<(b|i|u|br|h[23]|ol|ul|li|blockquote)\s[^>]*>/gi, '<$1>')
+        // Strip all tags except allowed ones (b, i, u, a, br, p, h2, h3, ol, ul, li, blockquote)
+        .replace(/<(?!\/?(b|i|u|a|br|p|h[23]|ol|ul|li|blockquote)\b)[^>]*>/gi, '')
+        // Remove all attributes from allowed tags (except <a>)
+        .replace(/<(b|i|u|br|p|h[23]|ol|ul|li|blockquote)\s[^>]*>/gi, '<$1>')
         // For <a>, keep only href attribute
         .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
         .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
         // Remove any remaining attributes on <a> that didn't match
         .replace(/<a(?!\s+href)[^>]*>/gi, '<a>')
-        // Clean up <br> immediately before or after headings, lists, and blockquotes (they create their own breaks)
-        .replace(/<br\s*\/?>\s*(<h[23]>)/gi, '$1')
-        .replace(/(<\/h[23]>)\s*<br\s*\/?>/gi, '$1')
-        .replace(/<br\s*\/?>\s*(<[ou]l>)/gi, '$1')
-        .replace(/(<\/[ou]l>)\s*<br\s*\/?>/gi, '$1')
-        .replace(/<br\s*\/?>\s*(<blockquote>)/gi, '$1')
-        .replace(/(<\/blockquote>)\s*<br\s*\/?>/gi, '$1')
-        // Collapse 3+ consecutive <br> into double <br> (max one paragraph break)
-        .replace(/(<br\s*\/?>){3,}/gi, '<br><br>')
-        // Clean up leading <br> tags
-        .replace(/^(<br\s*\/?>)+/i, '')
-        // Clean up trailing <br> tags
-        .replace(/(<br\s*\/?>)+$/i, '')
+        // Clean up empty paragraphs (but keep <p><br></p> as intentional spacing)
+        .replace(/<p>\s*<\/p>/gi, '')
+        // Remove <p> wrapping around block elements (headings, lists, blockquotes)
+        .replace(/<p>\s*(<h[23]>)/gi, '$1')
+        .replace(/(<\/h[23]>)\s*<\/p>/gi, '$1')
+        .replace(/<p>\s*(<[ou]l>)/gi, '$1')
+        .replace(/(<\/[ou]l>)\s*<\/p>/gi, '$1')
+        .replace(/<p>\s*(<blockquote>)/gi, '$1')
+        .replace(/(<\/blockquote>)\s*<\/p>/gi, '$1')
         .trim();
+    // Ensure content is wrapped in <p> if it doesn't start with a block element
+    if (result && !result.match(/^<(p|h[23]|ol|ul|blockquote)/i)) {
+        result = '<p>' + result + '</p>';
+    }
     return result;
 }
 
@@ -1877,8 +1869,12 @@ const articleStyles = `
     [data-theme="dark"] .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
     [data-theme="dark"] .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
     .article-content-editor { min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: inherit; font-size: 1rem; line-height: 1.6; color: var(--text-main); }
-    .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
-    .article-body { white-space: pre-wrap; line-height: 1.6; font-size: 1.01rem; }
+    .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; pointer-events: none; }
+    .article-content-editor p { margin: 0 0 1em 0; }
+    .article-content-editor p:last-child { margin-bottom: 0; }
+    .article-body { line-height: 1.6; font-size: 1.01rem; }
+    .article-body p { margin: 0 0 1em 0; }
+    .article-body p:last-child { margin-bottom: 0; }
     .article-body h2, .article-content-editor h2 { font-size: 1.2rem; font-weight: 600; margin: 0.7em 0 0.3em 0; line-height: 1.3; }
     .article-body h3, .article-content-editor h3 { font-size: 1.05rem; font-weight: 600; margin: 0.6em 0 0.2em 0; line-height: 1.3; }
     .article-body ul, .article-body ol, .article-content-editor ul, .article-content-editor ol { margin: 0.4em 0; padding-left: 1.5em; }
@@ -1886,6 +1882,8 @@ const articleStyles = `
     .article-body blockquote, .article-content-editor blockquote { margin: 0.5em 0; padding: 0.4em 0 0.4em 1em; border-left: 3px solid var(--separator-color); color: var(--text-muted); font-style: italic; }
     .article-body a { color: var(--text-main); text-decoration: underline; }
     .article-body a:hover { opacity: 0.7; }
+    .editor-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 6px; margin-bottom: 10px; }
+    .linebreak-btn { }
     .article-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
     .article-meta { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
     .article-list-item { padding-bottom: 6px; margin-bottom: 6px; }
@@ -1986,8 +1984,10 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
                 <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
                 <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
+            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                 <button type="button" onclick="submitArticle('published')">Publish</button>
                 <button type="button" onclick="submitArticle('draft')" style="background:var(--separator-color);color:var(--text-main);">Save as draft</button>
@@ -1995,6 +1995,42 @@ app.get('/articles/new', requireOwner, (req, res) => {
             </div>
         </form>
         <script>
+        document.execCommand('defaultParagraphSeparator', false, 'p');
+        // Ensure text is always inside a <p> block for proper paragraph behavior
+        (function() {
+            var editor = document.getElementById('article-content');
+            editor.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    // If content is bare text (not inside a block element), wrap it first
+                    var sel = window.getSelection();
+                    if (sel.rangeCount) {
+                        var node = sel.anchorNode;
+                        var isInsideBlock = false;
+                        while (node && node !== editor) {
+                            if (node.nodeType === 1 && /^(P|H[1-6]|DIV|BLOCKQUOTE|LI)$/.test(node.tagName)) {
+                                isInsideBlock = true;
+                                break;
+                            }
+                            node = node.parentNode;
+                        }
+                        if (!isInsideBlock && editor.textContent.trim()) {
+                            e.preventDefault();
+                            document.execCommand('formatBlock', false, '<p>');
+                            // Now insert a new paragraph
+                            document.execCommand('insertParagraph', false, null);
+                        }
+                    }
+                }
+            });
+            editor.addEventListener('input', function() {
+                var text = editor.textContent.trim();
+                if (!text) {
+                    editor.classList.add('is-empty');
+                } else {
+                    editor.classList.remove('is-empty');
+                }
+            });
+        })();
         function execCmd(cmd) {
             document.execCommand(cmd, false, null);
             document.getElementById('article-content').focus();
@@ -2005,7 +2041,7 @@ app.get('/articles/new', requireOwner, (req, res) => {
             // Check if currently in this heading — if so, toggle off to normal paragraph
             var block = getCurrentBlock();
             if (block && block.tagName === tag.toUpperCase()) {
-                document.execCommand('formatBlock', false, '<div>');
+                document.execCommand('formatBlock', false, '<p>');
             } else {
                 document.execCommand('formatBlock', false, '<' + tag + '>');
             }
@@ -2015,12 +2051,16 @@ app.get('/articles/new', requireOwner, (req, res) => {
         function execQuote() {
             var block = getCurrentBlock();
             if (block && block.tagName === 'BLOCKQUOTE') {
-                document.execCommand('formatBlock', false, '<div>');
+                document.execCommand('formatBlock', false, '<p>');
             } else {
                 document.execCommand('formatBlock', false, '<blockquote>');
             }
             document.getElementById('article-content').focus();
             updateToolbarState();
+        }
+        function execLineBreak() {
+            document.execCommand('insertLineBreak', false, null);
+            document.getElementById('article-content').focus();
         }
         function getCurrentBlock() {
             var sel = window.getSelection();
@@ -2150,16 +2190,24 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 });
                 document.execCommand('insertHTML', false, temp.innerHTML);
             } else if (text) {
-                // Plain text paste: convert line breaks to <br>
+                // Plain text paste: double newlines become paragraphs, single become <br>
                 var escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                var htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                var paragraphs = escaped.split(/\\r\\n\\r\\n|\\n\\n|\\r\\r/);
+                var htmlText;
+                if (paragraphs.length > 1) {
+                    htmlText = paragraphs.map(function(p) {
+                        return '<p>' + p.replace(/\\r\\n|\\r|\\n/g, '<br>') + '</p>';
+                    }).join('');
+                } else {
+                    htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                }
                 document.execCommand('insertHTML', false, htmlText);
             }
         });
         function confirmCancel() {
             var title = document.getElementById('article-title').value.trim();
-            var content = document.getElementById('article-content').innerHTML.trim();
-            if (title || (content && content !== '<br>')) {
+            var content = document.getElementById('article-content').textContent.trim();
+            if (title || content) {
                 return confirm('You have unsaved changes. Discard?');
             }
             return true;
@@ -2168,8 +2216,8 @@ app.get('/articles/new', requireOwner, (req, res) => {
         function hasUnsavedChanges() {
             if (articleSaved) return false;
             var title = document.getElementById('article-title').value.trim();
-            var content = document.getElementById('article-content').innerHTML.trim();
-            return !!(title || (content && content !== '<br>'));
+            var content = document.getElementById('article-content').textContent.trim();
+            return !!(title || content);
         }
         window.addEventListener('beforeunload', function(e) {
             if (hasUnsavedChanges()) {
@@ -2182,7 +2230,7 @@ app.get('/articles/new', requireOwner, (req, res) => {
             var content = document.getElementById('article-content').innerHTML.trim();
             var dateVal = document.getElementById('article-date').value;
             if (!title) { alert('Title is required.'); return; }
-            if (!content || content === '<br>') { alert('Content is required.'); return; }
+            if (!document.getElementById('article-content').textContent.trim()) { alert('Content is required.'); return; }
             articleSaved = true;
             var btn = event.target;
             btn.textContent = status === 'draft' ? 'Saving...' : 'Publishing...';
@@ -2339,8 +2387,10 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
                     <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
                     <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                    <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
                 </div>
                 <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
+                <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
                 <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                     <button type="button" onclick="updateArticle('published')">
                         ${article.status === 'draft' ? 'Publish' : 'Update'}
@@ -2350,6 +2400,37 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 </div>
             </form>
             <script>
+            document.execCommand('defaultParagraphSeparator', false, 'p');
+            // Ensure editor content starts wrapped in block elements
+            (function() {
+                var editor = document.getElementById('article-content');
+                var html = editor.innerHTML.trim();
+                if (html && html !== '<br>' && !html.match(/^<(p|h[1-6]|div|blockquote|ol|ul)/i)) {
+                    // Wrap bare content in <p> tags (old articles stored with <br>)
+                    editor.innerHTML = '<p>' + html + '</p>';
+                }
+                editor.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        var sel = window.getSelection();
+                        if (sel.rangeCount) {
+                            var node = sel.anchorNode;
+                            var isInsideBlock = false;
+                            while (node && node !== editor) {
+                                if (node.nodeType === 1 && /^(P|H[1-6]|DIV|BLOCKQUOTE|LI)$/.test(node.tagName)) {
+                                    isInsideBlock = true;
+                                    break;
+                                }
+                                node = node.parentNode;
+                            }
+                            if (!isInsideBlock && editor.textContent.trim()) {
+                                e.preventDefault();
+                                document.execCommand('formatBlock', false, '<p>');
+                                document.execCommand('insertParagraph', false, null);
+                            }
+                        }
+                    }
+                });
+            })();
             function execCmd(cmd) {
                 document.execCommand(cmd, false, null);
                 document.getElementById('article-content').focus();
@@ -2359,7 +2440,7 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 var editor = document.getElementById('article-content');
                 var block = getCurrentBlock();
                 if (block && block.tagName === tag.toUpperCase()) {
-                    document.execCommand('formatBlock', false, '<div>');
+                    document.execCommand('formatBlock', false, '<p>');
                 } else {
                     document.execCommand('formatBlock', false, '<' + tag + '>');
                 }
@@ -2369,12 +2450,16 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
             function execQuote() {
                 var block = getCurrentBlock();
                 if (block && block.tagName === 'BLOCKQUOTE') {
-                    document.execCommand('formatBlock', false, '<div>');
+                    document.execCommand('formatBlock', false, '<p>');
                 } else {
                     document.execCommand('formatBlock', false, '<blockquote>');
                 }
                 document.getElementById('article-content').focus();
                 updateToolbarState();
+            }
+            function execLineBreak() {
+                document.execCommand('insertLineBreak', false, null);
+                document.getElementById('article-content').focus();
             }
             function getCurrentBlock() {
                 var sel = window.getSelection();
@@ -2497,7 +2582,15 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     document.execCommand('insertHTML', false, temp.innerHTML);
                 } else if (text) {
                     var escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                    var htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                    var paragraphs = escaped.split(/\\r\\n\\r\\n|\\n\\n|\\r\\r/);
+                    var htmlText;
+                    if (paragraphs.length > 1) {
+                        htmlText = paragraphs.map(function(p) {
+                            return '<p>' + p.replace(/\\r\\n|\\r|\\n/g, '<br>') + '</p>';
+                        }).join('');
+                    } else {
+                        htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                    }
                     document.execCommand('insertHTML', false, htmlText);
                 }
             });
@@ -2513,7 +2606,7 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 var content = document.getElementById('article-content').innerHTML.trim();
                 var dateVal = document.getElementById('article-date').value;
                 if (!title) { alert('Title is required.'); return; }
-                if (!content || content === '<br>') { alert('Content is required.'); return; }
+                if (!document.getElementById('article-content').textContent.trim()) { alert('Content is required.'); return; }
                 articleSaved = true;
                 var btn = event.target;
                 btn.textContent = status === 'draft' ? 'Saving...' : (status === 'published' ? '${article.status === 'draft' ? 'Publishing...' : 'Updating...'}' : 'Saving...');
