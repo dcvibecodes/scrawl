@@ -1,7 +1,7 @@
 {
-  "name": "Microblog",
-  "short_name": "Microblog",
-  "description": "A personal microblog",
+  "name": "Scrawl",
+  "short_name": "Scrawl",
+  "description": "A personal publishing space for posts and articles",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",

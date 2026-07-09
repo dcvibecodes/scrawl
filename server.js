@@ -16,8 +16,10 @@ const DATA_DIR = path.join(__dirname, 'data');
 const HASH_FILE = path.join(DATA_DIR, 'owner.hash');
 const SECRET_FILE = path.join(DATA_DIR, 'session.secret');
 const BLOG_TITLE_FILE = path.join(DATA_DIR, 'blog-title.txt');
+const COPYRIGHT_FILE = path.join(DATA_DIR, 'copyright.txt');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DEFAULT_BLOG_TITLE = 'Scrawl';
 
 function getSessionSecret() {
     if (!fs.existsSync(SECRET_FILE)) {
@@ -38,15 +40,24 @@ function getOwnerHash() {
 
 function getBlogTitle() {
     if (!fs.existsSync(BLOG_TITLE_FILE)) {
-        return 'Microblog';
+        return DEFAULT_BLOG_TITLE;
     }
 
     const title = fs.readFileSync(BLOG_TITLE_FILE, 'utf8').trim();
-    return title || 'Microblog';
+    return title || DEFAULT_BLOG_TITLE;
 }
 
 function saveBlogTitle(title) {
     fs.writeFileSync(BLOG_TITLE_FILE, title.trim(), 'utf8');
+}
+
+function getCopyright() {
+    if (!fs.existsSync(COPYRIGHT_FILE)) return '';
+    return fs.readFileSync(COPYRIGHT_FILE, 'utf8').trim();
+}
+
+function saveCopyright(text) {
+    fs.writeFileSync(COPYRIGHT_FILE, text.trim(), 'utf8');
 }
 
 function isAuthenticated(req) {
@@ -95,8 +106,16 @@ async function initDatabase() {
         fs.mkdirSync(DATA_DIR);
     }
 
+    // Migrate old database filename if needed
+    const oldDbPath = path.join(DATA_DIR, 'microblog.db');
+    const newDbPath = path.join(DATA_DIR, 'scrawl.db');
+    if (fs.existsSync(oldDbPath) && !fs.existsSync(newDbPath)) {
+        fs.renameSync(oldDbPath, newDbPath);
+        console.log('Migrated database: microblog.db → scrawl.db');
+    }
+
     db = await open({
-        filename: path.join(DATA_DIR, 'microblog.db'),
+        filename: path.join(DATA_DIR, 'scrawl.db'),
         driver: sqlite3.Database
     });
 
@@ -109,8 +128,26 @@ async function initDatabase() {
     `);
 
     await db.exec(`
+        CREATE TABLE IF NOT EXISTS articles (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'published'
+        )
+    `);
+
+    await db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
         id UNINDEXED,
+        content
+    )
+`);
+
+    await db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
+        id UNINDEXED,
+        title,
         content
     )
 `);
@@ -137,6 +174,28 @@ if (missing.length > 0) {
     console.log(`FTS5: Indexed ${missing.length} existing entries.`);
 }
 
+// Backfill: index any articles missing from FTS
+const missingArticles = await db.all(`
+    SELECT a.id, a.title, a.content
+    FROM articles a
+    LEFT JOIN articles_fts f ON a.id = f.id
+    WHERE f.id IS NULL
+`);
+
+if (missingArticles.length > 0) {
+    const stmtA = await db.prepare(`
+        INSERT INTO articles_fts (id, title, content)
+        VALUES (?, ?, ?)
+    `);
+
+    for (const row of missingArticles) {
+        await stmtA.run(row.id, row.title, row.content);
+    }
+
+    await stmtA.finalize();
+    console.log(`FTS5: Indexed ${missingArticles.length} existing articles.`);
+}
+
 const { c: totalEntries } = await db.get(
     'SELECT COUNT(*) as c FROM entries'
 );
@@ -145,10 +204,14 @@ const { c: ftsEntries } = await db.get(
     'SELECT COUNT(*) as c FROM entries_fts'
 );
 
+const { c: totalArticles } = await db.get(
+    'SELECT COUNT(*) as c FROM articles'
+);
+
 console.log(
 `SQLite Database ready. Entries: ${totalEntries}, FTS indexed: ${ftsEntries}${
         totalEntries === ftsEntries ? ' ✓' : ' ✗ MISMATCH'
-    }`
+    }, Articles: ${totalArticles}`
 );
 
 } // End initDatabase()
@@ -168,6 +231,48 @@ function generateId() {
     } catch {
         return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
     }
+}
+
+// Sanitize article HTML: only allow b, i, u, a (with href), br, p, div (converted to paragraphs)
+function sanitizeArticleHtml(html) {
+    if (!html) return '';
+    let result = html
+        // Convert block-level breaks to <br> for consistent white-space: pre-wrap rendering
+        // But preserve headings as block elements
+        .replace(/<\/p>\s*<p>/gi, '<br><br>')
+        .replace(/<p>/gi, '')
+        .replace(/<\/p>/gi, '')
+        .replace(/<\/div>\s*<div>/gi, '<br>')
+        .replace(/<div><br\s*\/?><\/div>/gi, '<br>')
+        .replace(/<div>/gi, '<br>')
+        .replace(/<\/div>/gi, '')
+        // Strip all tags except allowed ones (b, i, u, a, br, h2, h3, ol, ul, li, blockquote)
+        .replace(/<h1[^>]*>/gi, '<h2>')
+        .replace(/<\/h1>/gi, '</h2>')
+        .replace(/<(?!\/?(b|i|u|a|br|h[23]|ol|ul|li|blockquote)\b)[^>]*>/gi, '')
+        // Remove all attributes from b, i, u, br, h2, h3, ol, ul, li, blockquote
+        .replace(/<(b|i|u|br|h[23]|ol|ul|li|blockquote)\s[^>]*>/gi, '<$1>')
+        // For <a>, keep only href attribute
+        .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
+        .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
+        // Remove any remaining attributes on <a> that didn't match
+        .replace(/<a(?!\s+href)[^>]*>/gi, '<a>')
+        // Clean up <br> immediately before or after headings, lists, and blockquotes (they create their own breaks)
+        .replace(/<br\s*\/?>\s*(<h[23]>)/gi, '$1')
+        .replace(/(<\/h[23]>)\s*<br\s*\/?>/gi, '$1')
+        .replace(/<br\s*\/?>\s*(<[ou]l>)/gi, '$1')
+        .replace(/(<\/[ou]l>)\s*<br\s*\/?>/gi, '$1')
+        .replace(/<br\s*\/?>\s*(<blockquote>)/gi, '$1')
+        .replace(/(<\/blockquote>)\s*<br\s*\/?>/gi, '$1')
+        // Clean up leading <br> tags
+        .replace(/^(<br\s*\/?>)+/i, '')
+        .trim();
+    return result;
+}
+
+// Strip HTML tags for FTS plain text indexing
+function stripHtml(html) {
+    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
 }
 
 function formatDate(timestamp) {
@@ -214,7 +319,7 @@ function renderEntries(entries, isOwner) {
                 .replace(/>/g, '&gt;')}">${snippetContent}</div>
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
-                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy</span>
+                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     ${ownerActions}
                 </div>
             </div>
@@ -314,6 +419,7 @@ const sharedStyles = `
     .search-icon-btn:hover { opacity: 1; }
     [data-theme="dark"] .search-icon-btn { background: none !important; color: var(--text-muted); }
     .publish-row { margin-top: 15px; }
+    .publish-row button { margin-top: 0; }
     .inline-search { display: flex; align-items: center; }
     .inline-search .search-icon-btn { flex-shrink: 0; }
     .search-bar-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-body); display: flex; align-items: center; gap: 8px; padding-right: 4px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 10; }
@@ -376,6 +482,7 @@ const sharedStyles = `
     .back-to-top { position: fixed; right: 32px; bottom: 28px; color: var(--text-main); text-decoration: none; font-size: 1.1rem; opacity: 0; transition: opacity 0.2s ease; z-index: 1000; cursor: pointer; user-select: none; }
     .back-to-top.visible { opacity: 0.6; }
     .back-to-top:hover { opacity: 1; }
+    .site-footer { margin-top: 50px; padding: 20px 0; border-top: 1px solid var(--separator-color); font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; text-align: center; }
     .auth-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
     .auth-link:hover { color: var(--text-main); }
     .login-form { margin-bottom: 30px; }
@@ -399,7 +506,9 @@ const sharedStyles = `
     }
 `;
 
-const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery }) =>  `
+const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright }) =>  {
+    const copyrightText = copyright !== undefined ? copyright : getCopyright();
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -409,6 +518,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
     <title>${title}</title>
     <link rel="manifest" href="/manifest.json">
     <link rel="alternate" type="application/json" href="/api/posts" title="All posts (JSON)">
+    <link rel="alternate" type="application/rss+xml" href="/feed/posts" title="Posts RSS Feed">
+    <link rel="alternate" type="application/rss+xml" href="/feed/articles" title="Articles RSS Feed">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="${escapeHtml(blogTitle)}">
@@ -433,7 +544,9 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
         <div class="desktop-nav">
             <a href="/random" class="random-link">random</a>
             <span class="header-separator">&middot;</span>
-            <a href="/archive" class="random-link">archive</a>
+            <a href="/archive" class="random-link">post archive</a>
+            <span class="header-separator">&middot;</span>
+            <a href="/articles" class="random-link">articles</a>
         </div>
             <a href="/random" class="mobile-random-btn" aria-label="Random">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -464,7 +577,11 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
                     <a href="#" id="editBlogTitle">edit title</a>
+                    <a href="#" id="editCopyright">edit footer</a>
                     <a href="#" id="themeToggle">dark</a>
+                    <a href="/feed/posts">rss: posts</a>
+                    <a href="/feed/articles">rss: articles</a>
+                    <a href="/help">help</a>
                     <a href="/logout">logout</a>
                 </div>
             </span>
@@ -479,6 +596,9 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
                     <a href="#" id="themeToggle">dark</a>
+                    <a href="/feed/posts">rss: posts</a>
+                    <a href="/feed/articles">rss: articles</a>
+                    <a href="/help">help</a>
                     <a href="/login">login</a>
                 </div>
             </span>
@@ -492,7 +612,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
             </button>
         </div>
         <div class="search-bar-overlay" id="searchBarOverlay">
-            <input type="text" id="search-field" placeholder="Search posts..." value="${escapeHtml(searchQuery || '')}" autocomplete="off">
+            <input type="text" id="search-field" placeholder="Search posts and articles..." value="${escapeHtml(searchQuery || '')}" autocomplete="off">
             <button type="button" class="search-bar-close" id="searchCloseBtn">&times;</button>
         </div>
     </header>
@@ -500,16 +620,18 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
     <!-- Mobile menu overlay -->
     <div class="mobile-menu" id="mobileMenu">
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
-        <a href="/archive">archive</a>
+        <a href="/archive">post archive</a>
+        <a href="/articles">articles</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/logout">logout</a>'
-            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/login">login</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/logout">logout</a>'
+            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/login">login</a>'
         }
     </div>
 
     <div class="container">
         <main class="main-content">${bodyContent}</main>
     </div>
+    ${copyrightText ? '<footer class="site-footer">' + copyrightText + '</footer>' : ''}
     <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">&uarr;</a>
     <script>
     (function(){
@@ -627,10 +749,10 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
             if (content) { text = content.dataset.full || content.textContent; }
             navigator.clipboard.writeText(text).then(function() {
                 el.textContent = 'copied';
-                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+                setTimeout(function() { el.textContent = 'copy text'; }, 2000);
             }).catch(function() {
                 el.textContent = 'failed';
-                setTimeout(function() { el.textContent = 'copy'; }, 2000);
+                setTimeout(function() { el.textContent = 'copy text'; }, 2000);
             });
         };
 
@@ -792,11 +914,41 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery })
                 doEditTitle();
             });
         }
+
+        // Copyright/footer edit
+        var editCopyright = document.getElementById('editCopyright');
+        if (editCopyright) {
+            editCopyright.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (gearDropdown) gearDropdown.classList.remove('open');
+                var footer = document.querySelector('.site-footer');
+                var currentText = footer ? footer.textContent.trim() : '';
+                var newText = prompt('Footer text (leave empty to remove):', currentText);
+                if (newText === null) return;
+                fetch('/api/copyright', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: newText.trim() })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.success) throw new Error();
+                    if (data.text) {
+                        if (footer) { footer.textContent = data.text; }
+                        else { var f = document.createElement('footer'); f.className = 'site-footer'; f.textContent = data.text; document.querySelector('.container').after(f); }
+                    } else {
+                        if (footer) footer.remove();
+                    }
+                })
+                .catch(function() { alert('Failed to save footer'); });
+            });
+        }
     })();
     </script>
 </body>
 </html>
 `;
+}
 
 // Helper to get archive list for filter dropdowns
 async function getArchives() {
@@ -819,7 +971,7 @@ app.get('/setup', (req, res) => {
     const bodyContent = `
         <div class="setup-container">
             <h2>Set Up Your Password</h2>
-            <p>This is a one-time setup. Choose a strong password to protect your microblog. You'll need this to publish, edit, and delete posts.</p>
+            <p>This is a one-time setup. Choose a strong password to protect your site. You'll need this to publish, edit, and delete posts.</p>
             <form action="/setup" method="POST">
                 <input type="password" name="password" placeholder="Choose a password" required minlength="8" autocomplete="new-password">
                 <div class="password-requirements">Minimum 8 characters. Use a mix of letters, numbers, and symbols.</div>
@@ -830,7 +982,7 @@ app.get('/setup', (req, res) => {
     `;
 
     res.send(layoutTemplate({
-    title: 'Setup - Microblog',
+    title: 'Setup',
     bodyContent,
     isOwner: false,
     blogTitle: getBlogTitle()
@@ -856,7 +1008,7 @@ app.post('/setup', async (req, res) => {
             </div>
         `;
         return res.send(layoutTemplate({
-            title: 'Setup - Microblog',
+            title: 'Setup',
             bodyContent,
             isOwner: false,
             blogTitle: getBlogTitle()
@@ -877,7 +1029,7 @@ app.post('/setup', async (req, res) => {
             </div>
         `;
         return res.send(layoutTemplate({
-            title: 'Setup - Microblog',
+            title: 'Setup',
             bodyContent,
             isOwner: false,
             blogTitle: getBlogTitle()
@@ -920,7 +1072,7 @@ app.get('/login', (req, res) => {
     `;
 
         res.send(layoutTemplate({
-        title: 'Login - Microblog',
+        title: 'Login',
         bodyContent,
         isOwner: false,
         blogTitle: getBlogTitle()
@@ -973,6 +1125,12 @@ app.post('/api/blog-title', requireOwner, (req, res) => {
     });
 });
 
+app.post('/api/copyright', requireOwner, (req, res) => {
+    const text = String(req.body.text || '').trim();
+    saveCopyright(text);
+    res.json({ success: true, text });
+});
+
 // --- Main Routes ---
 
 app.get('/', async (req, res) => {
@@ -983,6 +1141,7 @@ app.get('/', async (req, res) => {
         const searchQuery = req.query.q || '';
 let entries;
 let hasMore = false;
+let articleResults = [];
 
 const PAGE_SIZE = 50;
 const offset = parseInt(req.query.offset || '0', 10);
@@ -1005,6 +1164,16 @@ const offset = parseInt(req.query.offset || '0', 10);
                     JOIN entries_fts ON entries.id = entries_fts.id
                     WHERE entries_fts.content MATCH ?
                     ORDER BY entries_fts.rank
+                `, [formattedQuery]);
+
+                // Also search articles
+                articleResults = await db.all(`
+                    SELECT articles.*
+                    FROM articles
+                    JOIN articles_fts ON articles.id = articles_fts.id
+                    WHERE articles_fts MATCH ?
+                    AND articles.status = 'published'
+                    ORDER BY articles_fts.rank
                 `, [formattedQuery]);
             }
         } else {
@@ -1049,13 +1218,25 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
             `;
         } else {
             publishSection = `
-                <p class="login-prompt"><a href="/login">Login</a> to publish, edit, and delete posts.</p>
+                <p class="login-prompt"><a href="/login">Login</a> to publish, edit, and delete posts and articles.</p>
             `;
         }
 
         const bodyContent = `
             ${publishSection}
-            ${searchQuery ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px;">${entries.length} result${entries.length !== 1 ? 's' : ''} for "${escapeHtml(searchQuery)}"</p>` : ''}
+            ${searchQuery ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px;">${entries.length + articleResults.length} result${(entries.length + articleResults.length) !== 1 ? 's' : ''} for "${escapeHtml(searchQuery)}"</p>` : ''}
+            ${searchQuery && articleResults.length > 0 ? `
+                <div style="margin-bottom:25px;">
+                    <h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Articles</h3>
+                    ${articleResults.map(a => `
+                        <div class="entry">
+                            <div class="date">${formatDate(a.timestamp)}</div>
+                            <div class="content"><a href="/articles/${a.id}" style="color:var(--text-main);text-decoration:none;font-weight:600;">${escapeHtml(a.title)}</a></div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${entries.length > 0 ? '<h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Posts</h3>' : ''}
+            ` : ''}
             <div id="entries">${searchQuery && entries.length === 0 ? '' : entriesHTML}</div>
             ${(!searchQuery && hasMore) ? `
             <div style="text-align:center;margin:30px 0;">
@@ -1133,7 +1314,7 @@ app.get('/post/:id', async (req, res) => {
                 <div class="content">${safeContent}</div>
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
-                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy</span>
+                    <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     ${ownerActions}
                 </div>
             </div>
@@ -1248,22 +1429,102 @@ app.get('/archive/:year/:month', async (req, res) => {
     }
 });
 
+// --- RSS Feeds ---
+
+app.get('/feed/posts', async (req, res) => {
+    try {
+        const entries = await db.all('SELECT * FROM entries ORDER BY timestamp DESC LIMIT 50');
+        const host = `${req.protocol}://${req.get('host')}`;
+        const blogTitle = getBlogTitle();
+
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n';
+        xml += '<channel>\n';
+        xml += `  <title>${escapeHtml(blogTitle)} - Posts</title>\n`;
+        xml += `  <link>${host}</link>\n`;
+        xml += `  <description>Posts from ${escapeHtml(blogTitle)}</description>\n`;
+        xml += `  <atom:link href="${host}/feed/posts" rel="self" type="application/rss+xml"/>\n`;
+        if (entries.length > 0) {
+            xml += `  <lastBuildDate>${new Date(entries[0].timestamp).toUTCString()}</lastBuildDate>\n`;
+        }
+
+        for (const entry of entries) {
+            const date = new Date(entry.timestamp).toUTCString();
+            const snippet = escapeHtml(entry.content.substring(0, 100));
+            xml += '  <item>\n';
+            xml += `    <title>${snippet}${entry.content.length > 100 ? '...' : ''}</title>\n`;
+            xml += `    <link>${host}/post/${entry.id}</link>\n`;
+            xml += `    <guid isPermaLink="true">${host}/post/${entry.id}</guid>\n`;
+            xml += `    <pubDate>${date}</pubDate>\n`;
+            xml += `    <description>${escapeHtml(entry.content)}</description>\n`;
+            xml += '  </item>\n';
+        }
+
+        xml += '</channel>\n</rss>';
+        res.type('application/rss+xml').send(xml);
+    } catch (err) {
+        res.status(500).send('Error generating posts feed.');
+    }
+});
+
+app.get('/feed/articles', async (req, res) => {
+    try {
+        const articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC LIMIT 50");
+        const host = `${req.protocol}://${req.get('host')}`;
+        const blogTitle = getBlogTitle();
+
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n';
+        xml += '<channel>\n';
+        xml += `  <title>${escapeHtml(blogTitle)} - Articles</title>\n`;
+        xml += `  <link>${host}/articles</link>\n`;
+        xml += `  <description>Articles from ${escapeHtml(blogTitle)}</description>\n`;
+        xml += `  <atom:link href="${host}/feed/articles" rel="self" type="application/rss+xml"/>\n`;
+        if (articles.length > 0) {
+            xml += `  <lastBuildDate>${new Date(articles[0].timestamp).toUTCString()}</lastBuildDate>\n`;
+        }
+
+        for (const article of articles) {
+            const date = new Date(article.timestamp).toUTCString();
+            xml += '  <item>\n';
+            xml += `    <title>${escapeHtml(article.title)}</title>\n`;
+            xml += `    <link>${host}/articles/${article.id}</link>\n`;
+            xml += `    <guid isPermaLink="true">${host}/articles/${article.id}</guid>\n`;
+            xml += `    <pubDate>${date}</pubDate>\n`;
+            xml += `    <description>${escapeHtml(stripHtml(article.content).substring(0, 300))}</description>\n`;
+            xml += '  </item>\n';
+        }
+
+        xml += '</channel>\n</rss>';
+        res.type('application/rss+xml').send(xml);
+    } catch (err) {
+        res.status(500).send('Error generating articles feed.');
+    }
+});
+
 // --- Sitemap ---
 
 app.get('/sitemap.xml', async (req, res) => {
     try {
         const entries = await db.all('SELECT id, timestamp FROM entries ORDER BY timestamp DESC');
+        const articles = await db.all("SELECT id, timestamp FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
         const host = `${req.protocol}://${req.get('host')}`;
 
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
         xml += `  <url>\n    <loc>${host}/</loc>\n    <changefreq>daily</changefreq>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/articles</loc>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
         xml += `  <url>\n    <loc>${host}/archive</loc>\n    <changefreq>weekly</changefreq>\n  </url>\n`;
         xml += `  <url>\n    <loc>${host}/api/posts</loc>\n    <changefreq>daily</changefreq>\n  </url>\n`;
 
         for (const entry of entries) {
             const lastmod = new Date(entry.timestamp).toISOString().split('T')[0];
             xml += `  <url>\n    <loc>${host}/post/${entry.id}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>\n`;
+        }
+
+        for (const article of articles) {
+            const lastmod = new Date(article.timestamp).toISOString().split('T')[0];
+            xml += `  <url>\n    <loc>${host}/articles/${article.id}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>\n`;
         }
 
         xml += '</urlset>';
@@ -1306,13 +1567,13 @@ app.get('/archive', async (req, res) => {
 
         const bodyContent = `
             <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">
-                Archive <span style="font-size:0.9rem;color:var(--text-muted);opacity:0.75;">(${totalPosts} posts)</span>
+                Post Archive <span style="font-size:0.9rem;color:var(--text-muted);opacity:0.75;">(${totalPosts} posts)</span>
             </h2>
             ${archiveHTML}
         `;
 
         res.send(layoutTemplate({
-            title: 'Archive',
+            title: 'Post Archive',
             bodyContent,
             isOwner: req.isOwner,
             blogTitle: getBlogTitle()
@@ -1435,11 +1696,629 @@ app.post('/delete/:id', requireOwner, async (req, res) => {
     }
 });
 
+// --- Help Page ---
+
+app.get('/help', (req, res) => {
+    const blogTitle = getBlogTitle();
+    const bodyContent = `
+        <style>
+            .help-section { margin-bottom: 30px; }
+            .help-section h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; }
+            .help-section h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; margin-top: 15px; }
+            .help-section p { font-size: 0.9rem; color: var(--text-main); line-height: 1.6; margin-bottom: 8px; }
+            .help-section ul { font-size: 0.9rem; padding-left: 1.5em; margin-bottom: 8px; line-height: 1.6; }
+            .help-section li { margin-bottom: 4px; }
+            .help-section code { background: var(--separator-color); padding: 2px 5px; border-radius: 3px; font-size: 0.82rem; }
+            .help-section kbd { background: var(--separator-color); padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; font-family: inherit; }
+        </style>
+        <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">Help</h2>
+
+        <div class="help-section">
+            <h2>What is ${escapeHtml(blogTitle)}?</h2>
+            <p>${escapeHtml(blogTitle)} is a personal publishing space with two writing modes: quick posts and long-form articles. It's designed to be fast, minimal, and distraction-free.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>Posts</h2>
+            <p>Posts are short, quick thoughts — like a scratchpad. There's no title, no formatting. Just type and post.</p>
+            <h3>How to create a post</h3>
+            <ul>
+                <li>Log in as the owner</li>
+                <li>On the homepage, type in the text area</li>
+                <li>Click <strong>Post</strong></li>
+            </ul>
+            <h3>Post features</h3>
+            <ul>
+                <li>Plain text only — line breaks are preserved as-is</li>
+                <li>No character limit</li>
+                <li>Word and character counter below the text area</li>
+                <li>Long posts (280+ characters) are collapsed with a "click to expand" preview</li>
+            </ul>
+            <h3>Actions on posts</h3>
+            <ul>
+                <li><strong>#</strong> — permalink to the post</li>
+                <li><strong>copy text</strong> — copies the post content to clipboard</li>
+                <li><strong>edit</strong> — edit the post content (owner only)</li>
+                <li><strong>delete</strong> — delete the post with confirmation (owner only)</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>Articles</h2>
+            <p>Articles are longer-form writing with a title and rich formatting. They live in their own section at <code>/articles</code>.</p>
+            <h3>How to create an article</h3>
+            <ul>
+                <li>Go to <strong>articles</strong> from the navigation</li>
+                <li>Click <strong>New Article</strong></li>
+                <li>Enter a title</li>
+                <li>Optionally change the date (for backdating)</li>
+                <li>Write your content using the formatting toolbar</li>
+                <li>Click <strong>Publish</strong> or <strong>Save as draft</strong></li>
+            </ul>
+            <h3>Formatting options (articles only)</h3>
+            <ul>
+                <li><strong>B</strong> — Bold</li>
+                <li><strong>I</strong> — Italic</li>
+                <li><strong>U</strong> — Underline</li>
+                <li><strong>🔗</strong> — Insert hyperlink</li>
+                <li><strong>H2</strong> — Section heading</li>
+                <li><strong>H3</strong> — Sub-section heading</li>
+                <li><strong>1.</strong> — Numbered list</li>
+                <li><strong>•</strong> — Bullet list</li>
+                <li><strong>"</strong> — Blockquote</li>
+            </ul>
+            <h3>Drafts</h3>
+            <p>Articles can be saved as drafts. Drafts are only visible to the owner and show a "draft" badge. You can publish them later from the edit page.</p>
+            <h3>Backdating</h3>
+            <p>When creating or editing an article, you can set a custom date. This is useful for importing older articles from other platforms.</p>
+            <h3>Actions on articles</h3>
+            <ul>
+                <li><strong>#</strong> — permalink</li>
+                <li><strong>copy link</strong> — copies the article URL to clipboard</li>
+                <li><strong>share</strong> — uses the native share dialog on supported devices (falls back to copy link)</li>
+                <li><strong>edit</strong> / <strong>delete</strong> — owner only</li>
+            </ul>
+            <h3>Unsaved changes protection</h3>
+            <p>If you're writing or editing an article and try to navigate away, the browser will warn you about unsaved changes.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>Navigation</h2>
+            <ul>
+                <li><strong>random</strong> — opens a random post (not articles)</li>
+                <li><strong>post archive</strong> — browse posts by year and month</li>
+                <li><strong>articles</strong> — the articles list, grouped by year</li>
+                <li><strong><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;display:inline;"><circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line></svg></strong> — search across both posts and articles</li>
+                <li><strong><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;display:inline;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></strong> — settings menu (theme, title, footer, RSS, login/logout)</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>Search</h2>
+            <p>Search finds results across both posts and articles. It uses full-text search with relevance ranking.</p>
+            <ul>
+                <li>Click the search icon or press <kbd>/</kbd> to open search</li>
+                <li>Type your query and press <kbd>Enter</kbd></li>
+                <li>Press <kbd>Escape</kbd> to close search</li>
+                <li>Results show articles and posts separately</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>Customization</h2>
+            <h3>Changing the site title</h3>
+            <p>Click the gear icon and select <strong>edit title</strong>. Enter the new title in the prompt.</p>
+            <h3>Changing the footer / copyright text</h3>
+            <p>Click the gear icon and select <strong>edit footer</strong>. Enter your copyright or footer text. Leave empty to remove it.</p>
+            <h3>Dark mode</h3>
+            <p>Click the gear icon and select <strong>dark</strong> (or <strong>light</strong> to switch back). Your preference is saved in the browser.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>RSS Feeds</h2>
+            <p>Two separate RSS feeds are available for feed readers:</p>
+            <ul>
+                <li><code>/feed/posts</code> — latest posts</li>
+                <li><code>/feed/articles</code> — latest published articles</li>
+            </ul>
+            <p>Links are also in the gear menu and auto-discoverable by feed readers.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>Keyboard Shortcuts</h2>
+            <ul>
+                <li><kbd>N</kbd> — focus the new post editor (homepage only)</li>
+                <li><kbd>/</kbd> — open search</li>
+                <li><kbd>Escape</kbd> — close search</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>Authentication</h2>
+            <p>Only the owner can create, edit, and delete posts and articles. Visitors can read everything that's published.</p>
+            <h3>First-time setup</h3>
+            <p>On first launch, visit the app and you'll be redirected to <code>/setup</code> to create your password.</p>
+            <h3>Password reset</h3>
+            <p>Delete the file <code>data/owner.hash</code> and restart the server. You'll be prompted to set a new password.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>Progressive Web App</h2>
+            <p>This app can be installed on your phone or desktop as a PWA. Use your browser's "Add to Home Screen" or "Install App" option.</p>
+        </div>
+    `;
+
+    res.send(layoutTemplate({
+        title: 'Help',
+        bodyContent,
+        isOwner: req.isOwner,
+        blogTitle: getBlogTitle()
+    }));
+});
+
+// --- Articles Routes ---
+
+// Articles styles (additional to shared)
+const articleStyles = `
+    .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); }
+    .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; }
+    .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
+    [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
+    [data-theme="dark"] .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
+    .article-content-editor { min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: inherit; font-size: 1rem; line-height: 1.6; color: var(--text-main); }
+    .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
+    .article-body { white-space: pre-wrap; line-height: 1.6; font-size: 1.01rem; }
+    .article-body h2, .article-content-editor h2 { font-size: 1.2rem; font-weight: 600; margin: 0.7em 0 0.3em 0; line-height: 1.3; }
+    .article-body h3, .article-content-editor h3 { font-size: 1.05rem; font-weight: 600; margin: 0.6em 0 0.2em 0; line-height: 1.3; }
+    .article-body ul, .article-body ol, .article-content-editor ul, .article-content-editor ol { margin: 0.4em 0; padding-left: 1.5em; }
+    .article-body li, .article-content-editor li { margin-bottom: 0.2em; }
+    .article-body blockquote, .article-content-editor blockquote { margin: 0.5em 0; padding: 0.4em 0 0.4em 1em; border-left: 3px solid var(--separator-color); color: var(--text-muted); font-style: italic; }
+    .article-body a { color: var(--text-main); text-decoration: underline; }
+    .article-body a:hover { opacity: 0.7; }
+    .article-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+    .article-meta { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
+    .article-list-item { padding-bottom: 6px; margin-bottom: 6px; }
+    .article-list-title { font-size: 0.95rem; font-weight: normal; }
+    .article-list-title a { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
+    .article-list-title a:hover { color: var(--text-main); }
+    .article-list-date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; }
+    .article-year-heading { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; margin-top: 30px; }
+    .article-year-heading:first-child { margin-top: 0; }
+    .draft-badge { display: inline-block; font-size: 0.7rem; color: var(--text-muted); border: 1px solid var(--separator-color); border-radius: 3px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+    .share-btn { background: none !important; border: none; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
+    .share-btn:hover { color: var(--text-main); }
+    [data-theme="dark"] .share-btn { background: none !important; color: var(--text-muted); }
+`;
+
+// List articles
+app.get('/articles', async (req, res) => {
+    try {
+        let articles;
+        if (req.isOwner) {
+            articles = await db.all('SELECT * FROM articles ORDER BY timestamp DESC');
+        } else {
+            articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
+        }
+
+        // Group by year
+        const grouped = {};
+        for (const article of articles) {
+            const year = new Date(article.timestamp).getFullYear().toString();
+            if (!grouped[year]) grouped[year] = [];
+            grouped[year].push(article);
+        }
+
+        const years = Object.keys(grouped).sort((a, b) => b - a);
+
+        let listHTML = '';
+        if (articles.length === 0) {
+            listHTML = '<p class="no-entries">No articles yet.</p>';
+        } else {
+            for (const year of years) {
+                listHTML += `<h2 class="article-year-heading">${year}</h2>`;
+                for (const article of grouped[year]) {
+                    const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
+                    listHTML += `
+                        <div class="article-list-item">
+                            <div class="article-list-title">
+                                <a href="/articles/${article.id}">${escapeHtml(article.title)}</a>
+                                ${draftBadge}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const newArticleBtn = req.isOwner ? `
+            <div style="margin-bottom:30px;">
+                <a href="/articles/new" class="btn">New Article</a>
+            </div>
+        ` : '';
+
+        const bodyContent = `
+            <style>${articleStyles}</style>
+            ${newArticleBtn}
+            ${listHTML}
+        `;
+
+        res.send(layoutTemplate({
+            title: 'Articles',
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error loading articles.');
+    }
+});
+
+// New article form
+app.get('/articles/new', requireOwner, (req, res) => {
+    const today = new Date().toISOString().split('T')[0];
+    const bodyContent = `
+        <style>${articleStyles}</style>
+        <form id="articleForm" style="margin:0;">
+            <input type="text" id="article-title" name="title" placeholder="Article title" required style="font-size:1.2rem;font-weight:600;margin-bottom:10px;">
+            <div style="margin-bottom:10px;">
+                <input type="date" id="article-date" value="${today}" style="padding:8px 0;background:var(--bg-body);color:var(--text-main);border:none;border-bottom:1px solid var(--separator-color);font-family:inherit;font-size:0.85rem;outline:none;">
+            </div>
+            <div class="article-editor-toolbar">
+                <button type="button" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+                <button type="button" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+                <button type="button" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                <button type="button" onclick="insertLink()" title="Insert link">&#128279;</button>
+                <button type="button" onclick="execHeading('h2')" title="Heading 2">H2</button>
+                <button type="button" onclick="execHeading('h3')" title="Heading 3">H3</button>
+                <button type="button" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
+                <button type="button" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
+                <button type="button" onclick="execQuote()" title="Blockquote">&#8220;</button>
+            </div>
+            <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
+            <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
+                <button type="button" onclick="submitArticle('published')">Publish</button>
+                <button type="button" onclick="submitArticle('draft')" style="background:var(--separator-color);color:var(--text-main);">Save as draft</button>
+                <a href="/articles" class="back-link" style="margin-left:10px;" onclick="if(!confirmCancel())return false;articleSaved=true;">cancel</a>
+            </div>
+        </form>
+        <script>
+        function execCmd(cmd) {
+            document.execCommand(cmd, false, null);
+            document.getElementById('article-content').focus();
+        }
+        function execHeading(tag) {
+            document.execCommand('formatBlock', false, '<' + tag + '>');
+            document.getElementById('article-content').focus();
+        }
+        function execQuote() {
+            document.execCommand('formatBlock', false, '<blockquote>');
+            document.getElementById('article-content').focus();
+        }
+        function insertLink() {
+            var url = prompt('Enter URL:');
+            if (url) {
+                document.execCommand('createLink', false, url);
+                document.getElementById('article-content').focus();
+            }
+        }
+        function confirmCancel() {
+            var title = document.getElementById('article-title').value.trim();
+            var content = document.getElementById('article-content').innerHTML.trim();
+            if (title || (content && content !== '<br>')) {
+                return confirm('You have unsaved changes. Discard?');
+            }
+            return true;
+        }
+        var articleSaved = false;
+        function hasUnsavedChanges() {
+            if (articleSaved) return false;
+            var title = document.getElementById('article-title').value.trim();
+            var content = document.getElementById('article-content').innerHTML.trim();
+            return !!(title || (content && content !== '<br>'));
+        }
+        window.addEventListener('beforeunload', function(e) {
+            if (hasUnsavedChanges()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+        function submitArticle(status) {
+            var title = document.getElementById('article-title').value.trim();
+            var content = document.getElementById('article-content').innerHTML.trim();
+            var dateVal = document.getElementById('article-date').value;
+            if (!title) { alert('Title is required.'); return; }
+            if (!content || content === '<br>') { alert('Content is required.'); return; }
+            articleSaved = true;
+            var btn = event.target;
+            btn.textContent = status === 'draft' ? 'Saving...' : 'Publishing...';
+            btn.disabled = true;
+            var body = { title: title, content: content, status: status };
+            if (dateVal) body.date = dateVal;
+            fetch('/articles', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) window.location.href = '/articles/' + data.id;
+                else { articleSaved = false; alert('Failed to save article.'); btn.disabled = false; btn.textContent = status === 'draft' ? 'Save as draft' : 'Publish'; }
+            })
+            .catch(function() { articleSaved = false; alert('Failed to save article.'); btn.disabled = false; btn.textContent = status === 'draft' ? 'Save as draft' : 'Publish'; });
+        }
+        </script>
+    `;
+
+    res.send(layoutTemplate({
+        title: 'New Article',
+        bodyContent,
+        isOwner: true,
+        blogTitle: getBlogTitle()
+    }));
+});
+
+// Create article (API)
+app.post('/articles', requireOwner, async (req, res) => {
+    try {
+        const { title, content, status, date } = req.body;
+        if (!title || !content) {
+            return res.status(400).json({ success: false, error: 'Title and content required.' });
+        }
+
+        const id = generateId();
+        const sanitizedContent = sanitizeArticleHtml(content);
+        const articleStatus = status === 'draft' ? 'draft' : 'published';
+        // Support backdated articles
+        const timestamp = date ? new Date(date + 'T12:00:00').getTime() : Date.now();
+
+        await db.run(
+            'INSERT INTO articles (id, title, content, timestamp, status) VALUES (?, ?, ?, ?, ?)',
+            [id, title.trim(), sanitizedContent, timestamp, articleStatus]
+        );
+        await db.run(
+            'INSERT INTO articles_fts (id, title, content) VALUES (?, ?, ?)',
+            [id, title.trim(), stripHtml(sanitizedContent)]
+        );
+
+        res.json({ success: true, id });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Failed to create article.' });
+    }
+});
+
+// View single article
+app.get('/articles/:id', async (req, res) => {
+    try {
+        const article = await db.get('SELECT * FROM articles WHERE id = ?', [req.params.id]);
+        if (!article) return res.status(404).send('Article not found.');
+
+        // Only owner can see drafts
+        if (article.status === 'draft' && !req.isOwner) {
+            return res.status(404).send('Article not found.');
+        }
+
+        const dateStr = formatDate(article.timestamp);
+        const fullDate = new Date(article.timestamp).toLocaleString();
+        const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
+
+        const ownerActions = req.isOwner ? `
+            <a href="/articles/${article.id}/edit" class="edit-link">edit</a>
+            <form action="/articles/${article.id}/delete" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
+                <button type="submit" class="delete-btn">delete</button>
+            </form>
+        ` : '';
+
+        const bodyContent = `
+            <style>${articleStyles}</style>
+            <article>
+                <h1 class="article-title">${escapeHtml(article.title)} ${draftBadge}</h1>
+                <div class="article-meta" title="${fullDate}">${dateStr}</div>
+                <div class="article-body">${article.content}</div>
+                <div class="actions" style="margin-top:20px;">
+                    <a href="/articles/${article.id}" class="permalink" title="Permalink">#</a>
+                    <span class="copy-link" onclick="copyArticleLink(this)">copy link</span>
+                    <button type="button" class="share-btn" onclick="shareArticle()">share</button>
+                    ${ownerActions}
+                </div>
+            </article>
+            <p style="margin-top:30px;"><a href="/articles" class="back-link">&larr; back to articles</a></p>
+            <script>
+            function copyArticleLink(el) {
+                navigator.clipboard.writeText(window.location.href).then(function() {
+                    el.textContent = 'copied';
+                    setTimeout(function() { el.textContent = 'copy link'; }, 2000);
+                }).catch(function() {
+                    el.textContent = 'failed';
+                    setTimeout(function() { el.textContent = 'copy link'; }, 2000);
+                });
+            }
+            function shareArticle() {
+                if (navigator.share) {
+                    navigator.share({
+                        title: ${JSON.stringify(article.title)},
+                        url: window.location.href
+                    }).catch(function() {});
+                } else {
+                    copyArticleLink(document.querySelector('.share-btn'));
+                }
+            }
+            </script>
+        `;
+
+        res.send(layoutTemplate({
+            title: article.title,
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error loading article.');
+    }
+});
+
+// Edit article form
+app.get('/articles/:id/edit', requireOwner, async (req, res) => {
+    try {
+        const article = await db.get('SELECT * FROM articles WHERE id = ?', [req.params.id]);
+        if (!article) return res.status(404).send('Article not found.');
+
+        const articleDate = new Date(article.timestamp).toISOString().split('T')[0];
+
+        const bodyContent = `
+            <style>${articleStyles}</style>
+            <form id="articleForm" style="margin:0;">
+                <input type="text" id="article-title" name="title" placeholder="Article title" required value="${escapeHtml(article.title)}" style="font-size:1.2rem;font-weight:600;margin-bottom:10px;">
+                <div style="margin-bottom:10px;">
+                    <input type="date" id="article-date" value="${articleDate}" style="padding:8px 0;background:var(--bg-body);color:var(--text-main);border:none;border-bottom:1px solid var(--separator-color);font-family:inherit;font-size:0.85rem;outline:none;">
+                </div>
+                <div class="article-editor-toolbar">
+                    <button type="button" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+                    <button type="button" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+                    <button type="button" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+                    <button type="button" onclick="insertLink()" title="Insert link">&#128279;</button>
+                    <button type="button" onclick="execHeading('h2')" title="Heading 2">H2</button>
+                    <button type="button" onclick="execHeading('h3')" title="Heading 3">H3</button>
+                    <button type="button" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
+                    <button type="button" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
+                    <button type="button" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                </div>
+                <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
+                <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
+                    <button type="button" onclick="updateArticle('published')">
+                        ${article.status === 'draft' ? 'Publish' : 'Update'}
+                    </button>
+                    ${article.status === 'published' ? '' : '<button type="button" onclick="updateArticle(\'draft\')" style="background:var(--separator-color);color:var(--text-main);">Save draft</button>'}
+                    <a href="/articles/${article.id}" class="back-link" style="margin-left:10px;" onclick="articleSaved=true;">cancel</a>
+                </div>
+            </form>
+            <script>
+            function execCmd(cmd) {
+                document.execCommand(cmd, false, null);
+                document.getElementById('article-content').focus();
+            }
+            function execHeading(tag) {
+                document.execCommand('formatBlock', false, '<' + tag + '>');
+                document.getElementById('article-content').focus();
+            }
+            function execQuote() {
+                document.execCommand('formatBlock', false, '<blockquote>');
+                document.getElementById('article-content').focus();
+            }
+            function insertLink() {
+                var url = prompt('Enter URL:');
+                if (url) {
+                    document.execCommand('createLink', false, url);
+                    document.getElementById('article-content').focus();
+                }
+            }
+            var articleSaved = false;
+            window.addEventListener('beforeunload', function(e) {
+                if (!articleSaved) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+            function updateArticle(status) {
+                var title = document.getElementById('article-title').value.trim();
+                var content = document.getElementById('article-content').innerHTML.trim();
+                var dateVal = document.getElementById('article-date').value;
+                if (!title) { alert('Title is required.'); return; }
+                if (!content || content === '<br>') { alert('Content is required.'); return; }
+                articleSaved = true;
+                var btn = event.target;
+                btn.textContent = status === 'draft' ? 'Saving...' : (status === 'published' ? '${article.status === 'draft' ? 'Publishing...' : 'Updating...'}' : 'Saving...');
+                btn.disabled = true;
+                var body = { title: title, content: content, status: status };
+                if (dateVal) body.date = dateVal;
+                fetch('/articles/${article.id}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) window.location.href = '/articles/${article.id}';
+                    else { articleSaved = false; alert('Failed to update article.'); btn.disabled = false; btn.textContent = '${article.status === 'draft' ? 'Publish' : 'Update'}'; }
+                })
+                .catch(function() { articleSaved = false; alert('Failed to update article.'); btn.disabled = false; btn.textContent = '${article.status === 'draft' ? 'Publish' : 'Update'}'; });
+            }
+            </script>
+        `;
+
+        res.send(layoutTemplate({
+            title: 'Edit Article',
+            bodyContent,
+            isOwner: true,
+            blogTitle: getBlogTitle()
+        }));
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error loading edit page.');
+    }
+});
+
+// Update article (API)
+app.put('/articles/:id', requireOwner, async (req, res) => {
+    try {
+        const { title, content, status, date } = req.body;
+        if (!title || !content) {
+            return res.status(400).json({ success: false, error: 'Title and content required.' });
+        }
+
+        const sanitizedContent = sanitizeArticleHtml(content);
+        const articleStatus = status === 'draft' ? 'draft' : 'published';
+
+        if (date) {
+            const timestamp = new Date(date + 'T12:00:00').getTime();
+            await db.run(
+                'UPDATE articles SET title = ?, content = ?, status = ?, timestamp = ? WHERE id = ?',
+                [title.trim(), sanitizedContent, articleStatus, timestamp, req.params.id]
+            );
+        } else {
+            await db.run(
+                'UPDATE articles SET title = ?, content = ?, status = ? WHERE id = ?',
+                [title.trim(), sanitizedContent, articleStatus, req.params.id]
+            );
+        }
+        await db.run(
+            'UPDATE articles_fts SET title = ?, content = ? WHERE id = ?',
+            [title.trim(), stripHtml(sanitizedContent), req.params.id]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Failed to update article.' });
+    }
+});
+
+// Delete article
+app.post('/articles/:id/delete', requireOwner, async (req, res) => {
+    try {
+        await db.run('DELETE FROM articles WHERE id = ?', [req.params.id]);
+        await db.run('DELETE FROM articles_fts WHERE id = ?', [req.params.id]);
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.json({ success: true });
+        }
+
+        res.redirect('/articles');
+    } catch (err) {
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.status(500).json({ success: false });
+        }
+        res.status(500).send('Error deleting article.');
+    }
+});
+
 // --- Start Server ---
 
 initDatabase().then(() => {
     app.listen(PORT, () => {
-        console.log('Microblog running at http://localhost:' + PORT);
+        console.log('Scrawl running at http://localhost:' + PORT);
         if (!isOwnerSetup()) {
             console.log('No owner password set. Visit http://localhost:' + PORT + '/setup to configure.');
         }

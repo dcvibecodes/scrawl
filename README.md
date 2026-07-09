@@ -1,194 +1,144 @@
-# Microblog
+# Scrawl
 
-**Version 1.5**
+**Version 2.0.0**
 
-A minimalist microblogging and note-taking platform built for people who prefer writing over scrolling.
+A minimalist personal publishing space for quick posts and long-form articles.
 
-Microblog is designed to feel like a personal notebook: fast, distraction-free, and focused entirely on ideas. No feeds. No likes. No algorithms. Just your thoughts, organized chronologically and instantly searchable.
+Scrawl evolved from a microblog into a complete writing platform. It keeps the speed and simplicity of a scratchpad for quick thoughts, while adding a dedicated articles section for longer-form writing with formatting support.
 
 ---
 
 ## Features
 
-### Writing First
+### Two Writing Modes
 
-- Clean, distraction-free writing experience
-- Fast post creation
-- Auto-expanding text editor
-- Character and word counter
-- Keyboard shortcuts (desktop only)
-- Button feedback on publish, edit, and delete actions
+**Posts** — Quick thoughts, no title needed. Plain text, write and publish instantly.
 
-### Owner Authentication
+**Articles** — Long-form writing with titles, rich formatting, headings, lists, blockquotes, and draft support.
 
-- Password-protected publishing, editing, and deleting
-- Visitors can read all posts but cannot modify anything
-- One-time setup flow on first launch
-- bcrypt-hashed password storage (12 rounds, salted)
-- HMAC-signed session cookies (httpOnly, sameSite strict)
-- 7-day session persistence
+### Posts
+
+- Plain text with preserved line breaks
+- No character limit
+- Word and character counter
+- Long posts (280+ chars) collapsed with click-to-expand
+- Actions: permalink, copy text, edit, delete
+
+### Articles
+
+- Dedicated `/articles` section, listed by year
+- Rich text editor toolbar:
+  - **Bold**, *Italic*, Underline
+  - Hyperlinks
+  - H2 and H3 headings
+  - Numbered and bullet lists
+  - Blockquotes
+- Draft support — save privately, publish when ready
+- Backdating — set a custom date for imported articles
+- Web Share API for native device sharing
+- Unsaved changes protection (browser warns before navigating away)
+- Actions: permalink, copy link, share, edit, delete
 
 ### Search
 
-- Full-text search powered by SQLite FTS5 with BM25 relevance ranking
-- Multi-word prefix matching with proper sanitization of special characters
-- Result count displayed for active queries
-- Search accessible from every page via header icon or `/` keyboard shortcut
-- Full-screen overlay search bar with smooth animation
+- Full-text search (SQLite FTS5) across both posts and articles
+- Multi-word prefix matching with relevance ranking
+- Results grouped by type (articles shown separately from posts)
+- Accessible via header icon or `/` keyboard shortcut
+
+### Navigation
+
+- **random** — opens a random post
+- **post archive** — browse posts by year and month
+- **articles** — article list grouped by year
+- **search** — full-text search icon
+- **gear menu** — settings (title, footer, theme, RSS, help, login/logout)
+
+### RSS Feeds
+
+- `/feed/posts` — latest 50 posts
+- `/feed/articles` — latest 50 published articles
+- Auto-discoverable via `<link>` tags in HTML head
+- Links in the gear menu
 
 ### Customization
 
-- Custom blog title (editable from gear menu)
-- Title persists across server restarts
+- Editable site title (gear menu → edit title)
+- Editable footer/copyright text (gear menu → edit footer)
+- Light and dark themes (preference saved in browser)
+- Light theme by default
 
-### Archives
+### Authentication
 
-- Dedicated archive index page with year/month grouping and post counts
-- Browse by year, month, or year+month combination
-- Navigate directly to any time period
+- Password-protected publishing, editing, and deleting
+- One-time setup flow on first launch
+- bcrypt-hashed password (12 rounds, salted)
+- HMAC-signed session cookies (httpOnly, sameSite strict)
+- 7-day session persistence
+- Visitors can read all published content
 
-### All Posts
+### Help Page
 
-- Paginated view (200 posts per page) for browsing the full archive
-- Newer/Older navigation
+- Built-in help at `/help` explaining all features
+- Accessible from the gear menu
 
-### Random Discovery
+### Progressive Web App
 
-- Random post link in navigation
-- Dedicated icon on mobile for quick access
-
-### Editing
-
-- Edit existing posts with inline "update" link
-- Delete posts with confirmation and visual fade-out
-- Permanent links for individual entries
-- Inline post expansion for long posts (280+ characters)
-- Full-post copying even when previews are truncated
-
-### Mobile Friendly
-
-- Responsive design with hamburger menu navigation
-- Random and search icons always accessible in header
-- No horizontal scrolling
-- Progressive Web App (PWA) support
-- Keyboard shortcut hints hidden on mobile
-
-### Dark Mode
-
-- Light and dark themes accessible from gear menu (desktop) or hamburger menu (mobile)
-- Theme preference saved locally
+- Installable on mobile and desktop
+- Service worker with cache-first for static assets
+- Network-first for HTML pages (always fresh content)
 
 ### LLM Discoverability
 
-- Dynamic sitemap at `/sitemap.xml`
-- JSON API at `/api/posts` returning all posts with metadata
-- `<link rel="alternate">` tag for machine-readable discovery
-- Designed for LLM browsing agents to find and index all content
-
----
-
-## Philosophy
-
-Most writing apps have become increasingly complicated.
-
-Microblog takes the opposite approach.
-
-The goal is simple:
-
-- Capture ideas quickly
-- Find them later
-- Stay out of the way
-
-No timelines. No followers. No algorithms. No engagement metrics. No notifications. No unnecessary features.
-
-Just writing.
+- Dynamic sitemap at `/sitemap.xml` (posts and articles)
+- JSON API at `/api/posts`
+- RSS feeds for both content types
+- `<link rel="alternate">` tags for machine-readable discovery
 
 ---
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action                |
-| -------- | --------------------- |
-| N        | Focus new post editor |
-| /        | Open search           |
-| Escape   | Close search          |
+| Shortcut | Action |
+|----------|--------|
+| N | Focus new post editor (homepage) |
+| / | Open search |
+| Escape | Close search |
 
 ---
 
-## Navigation
+## Routes
 
-### Desktop
-
-`all · archive · random · 🔍 · ⚙`
-
-The gear menu contains: edit title, theme toggle, logout/login.
-
-### Mobile
-
-`Title ... 🔀 🔍 ☰`
-
-The hamburger menu contains: all, archive, edit title, theme toggle, logout/login.
+| Route | Description |
+|-------|-------------|
+| `/` | Homepage with posts |
+| `/articles` | Articles list grouped by year |
+| `/articles/new` | Write new article (owner) |
+| `/articles/:id` | View article |
+| `/articles/:id/edit` | Edit article (owner) |
+| `/archive` | Post archive by year/month |
+| `/random` | Random post |
+| `/post/:id` | Single post permalink |
+| `/edit/:id` | Edit post (owner) |
+| `/help` | Help page |
+| `/feed/posts` | RSS feed for posts |
+| `/feed/articles` | RSS feed for articles |
+| `/sitemap.xml` | XML sitemap |
+| `/api/posts` | JSON API for all posts |
+| `/login` | Owner login |
+| `/setup` | First-time password setup |
 
 ---
 
 ## Technology
 
-- Node.js
-- Express
-- SQLite with FTS5 Search
+- Node.js + Express
+- SQLite with FTS5 full-text search
 - bcryptjs (password hashing)
 - cookie-parser (signed session cookies)
-- Vanilla JavaScript
+- Vanilla JavaScript (no frontend framework)
 - Progressive Web App (PWA)
-
----
-
-## API
-
-### JSON Posts Endpoint
-
-```
-GET /api/posts
-```
-
-Returns all posts as JSON:
-
-```json
-{
-  "title": "Microblog",
-  "total": 150,
-  "posts": [
-    {
-      "id": "uuid",
-      "content": "Post text...",
-      "date": "2026-06-14T12:00:00.000Z",
-      "url": "https://yourdomain.com/post/uuid"
-    }
-  ]
-}
-```
-
-### Sitemap
-
-```
-GET /sitemap.xml
-```
-
-Dynamic XML sitemap listing all post URLs, the archive, all posts page, and API endpoint.
-
----
-
-## Search Engine Indexing
-
-By default, Microblog prevents search engines from indexing your content:
-
-```html
-<meta name="robots" content="noindex, nofollow">
-```
-
-This is intentional. Microblog is designed as a personal notebook rather than a public content platform.
-
-To allow indexing, remove this meta tag from `layoutTemplate()` in `server.js`.
+- Single-file server architecture
 
 ---
 
@@ -196,105 +146,30 @@ To allow indexing, remove this meta tag from `layoutTemplate()` in `server.js`.
 
 | Concern | Solution |
 |---------|----------|
-| Password storage | bcrypt hash (12 rounds, salted, slow-by-design) |
-| Session token | HMAC-signed, stored in httpOnly cookie |
+| Password storage | bcrypt hash (12 rounds, salted) |
+| Session token | HMAC-signed, httpOnly cookie |
 | Cookie flags | httpOnly, sameSite strict |
 | Write protection | Server-side middleware on all mutating routes |
-| XSS prevention | HTML escaping on all user content |
+| XSS (posts) | HTML escaping on all user content |
+| XSS (articles) | HTML sanitization (only b, i, u, a, br, h2, h3, ol, ul, li, blockquote allowed) |
 
 ### Password Reset
 
-Delete `data/owner.hash` and restart the server. You'll be redirected to `/setup` to set a new password.
+Delete `data/owner.hash` and restart the server. You'll be redirected to `/setup`.
 
 ---
 
-## Changelog
+## Data Files
 
-### Version 1.5
+All user data is stored in the `data/` directory (git-ignored):
 
-#### Added
-
-- Improved search: multi-word prefix matching, BM25 relevance ranking, special character sanitization
-- Search result count displayed for active queries
-- Full-screen search overlay accessible from header on all pages
-- Gear menu (⚙) for admin actions: edit title, theme toggle, logout
-- Gear menu shown for visitors too (with theme toggle and login)
-- Archive index page with year/month grouping and post counts
-- All Posts page with pagination (200 per page)
-- JSON API endpoint (`/api/posts`) for LLM discoverability
-- Dynamic sitemap (`/sitemap.xml`)
-- `<link rel="alternate">` meta tag for machine-readable API discovery
-- Hamburger menu on mobile with consistent navigation
-- Random post icon on mobile header
-- Escape key closes search
-
-#### Improved
-
-- Header simplified: `all · archive · random · 🔍 · ⚙`
-- All navigation links and action links use consistent lowercase styling
-- Removed year/month filter dropdowns (replaced by archive page)
-- Login prompt for visitors (no more grayed-out textarea)
-- Login page stretched to full width
-- Edit page uses lightweight link-style actions instead of heavy buttons
-- Textarea auto-resize no longer causes scroll jumps
-- Keyboard shortcut hints hidden on mobile
-- Consistent font sizes across nav links, back links, and action links
-- Removed dead CSS and unused code
-
-#### Fixed
-
-- Search no longer crashes on special characters
-- Search no longer fails silently on multi-word queries
-- Textarea editing no longer jumps page to top when content shrinks
-
-### Version 1.4
-
-#### Added
-
-- Custom blog titles
-- Inline title editing for owners
-- Persistent blog title storage
-
-#### Improved
-
-- Simplified search terminology
-- Better branding flexibility for self-hosted instances
-
-### Version 1.3
-
-#### Added
-
-- Expandable post previews for long entries
-- Inline expansion without page reloads
-- Full-post copying from previews
-- Pagination with "Load More" navigation
-
-#### Improved
-
-- Reduced homepage clutter for long-form writing
-- Faster browsing through large archives
-- Better reading experience on mobile
-
-### Version 1.2
-
-#### Added
-
-- Owner authentication with bcrypt password hashing
-- One-time `/setup` flow
-- Login/logout with signed session cookies
-- Server-side `requireOwner` middleware
-- Button feedback on actions
-- Delete fade-out animation
-
-### Version 1.1
-
-#### Added
-
-- Random post navigation
-- Dark mode
-- Back-to-top navigation
-- Archive navigation
-- Improved mobile responsiveness
+| File | Purpose |
+|------|---------|
+| `scrawl.db` | SQLite database (posts + articles) |
+| `owner.hash` | bcrypt password hash |
+| `session.secret` | HMAC signing key |
+| `blog-title.txt` | Custom site title |
+| `copyright.txt` | Footer/copyright text |
 
 ---
 
@@ -302,7 +177,7 @@ Delete `data/owner.hash` and restart the server. You'll be redirected to `/setup
 
 ```bash
 git clone <repository-url>
-cd microblog
+cd scrawl
 npm install
 npm start
 ```
@@ -311,22 +186,50 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 
 ---
 
-## Who Is This For?
+## Changelog
 
-- Writers
-- Journalers
-- Thinkers
-- Researchers
-- Developers
-- People who maintain personal knowledge archives
-- Anyone who prefers simplicity over complexity
+### Version 2.0.0
+
+This is a major overhaul of the original microblog app.
+
+#### Added
+
+- Articles section with dedicated `/articles` route
+- Article editor with contenteditable toolbar (B, I, U, link, H2, H3, numbered list, bullet list, blockquote)
+- Draft support for articles
+- Backdating support for articles (custom date picker)
+- Articles grouped by year in listing
+- Web Share API on articles (native OS sharing)
+- Unified search across posts and articles
+- Unsaved changes protection on article editor (beforeunload)
+- RSS feeds for posts (`/feed/posts`) and articles (`/feed/articles`)
+- RSS auto-discovery via link tags
+- Editable footer/copyright text (stored in `data/copyright.txt`)
+- Help page at `/help` with full feature documentation
+- Database auto-migration from `microblog.db` to `scrawl.db`
+
+#### Changed
+
+- App renamed from "Microblog" to "Scrawl"
+- Default blog title changed to "Scrawl"
+- Directory renamed from `microblog` to `scrawl`
+- "Archive" renamed to "Post Archive"
+- Navigation reordered: random · post archive · articles · search · gear
+- "copy" on posts renamed to "copy text"
+- "Write new article" button simplified to "New Article"
+- Search placeholder updated to "Search posts and articles..."
+- Login prompt updated to mention articles
+- Service worker cache name updated
+- PWA manifest updated
+
+#### Fixed
+
+- Consistent line break rendering between article editor and article view
+- Button vertical alignment in article forms
+- Consistent button feedback across all actions
 
 ---
 
 ## License
 
 Use it, modify it, and make it your own.
-
----
-
-*"A notebook for thoughts, not a platform for attention."*

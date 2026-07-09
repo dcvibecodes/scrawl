@@ -1,4 +1,4 @@
-const CACHE_NAME = 'microblog-v1';
+const CACHE_NAME = 'scrawl-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
