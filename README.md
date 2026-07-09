@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.0.0**
+**Version 2.1.0**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -187,6 +187,19 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.1.0
+
+#### Added
+
+- Paste sanitization in article editor — pasted content is stripped of all external fonts and styling, preserving only allowed formatting (bold, italic, underline, links, headings, lists, blockquotes)
+- Sticky editor toolbar — formatting buttons stay pinned at the top of the screen when scrolling long articles
+- Link editing and removal — clicking the link icon when cursor is on an existing link shows the current URL with options to edit or remove it
+
+#### Fixed
+
+- Paragraph and line break preservation — pasting or saving content with multiple paragraphs no longer collapses them into a single block
+- Timezone-correct dates — article date picker now defaults to local date instead of UTC (previously showed yesterday's date in timezones ahead of UTC)
 
 ### Version 2.0.0
 

@@ -237,14 +237,19 @@ function generateId() {
 function sanitizeArticleHtml(html) {
     if (!html) return '';
     let result = html
-        // Convert block-level breaks to <br> for consistent white-space: pre-wrap rendering
-        // But preserve headings as block elements
-        .replace(/<\/p>\s*<p>/gi, '<br><br>')
-        .replace(/<p>/gi, '')
+        // Normalize: convert <p>...</p> blocks into content followed by double <br>
+        // First handle </p><p> transitions (paragraph break)
+        .replace(/<\/p>\s*<p[^>]*>/gi, '<br><br>')
+        // Opening <p> at the start — just remove it
+        .replace(/^\s*<p[^>]*>/gi, '')
+        // Any remaining <p> tags (mid-content) — treat as line break
+        .replace(/<p[^>]*>/gi, '<br><br>')
+        // Closing </p> — treat as line break (handles final paragraph)
         .replace(/<\/p>/gi, '')
-        .replace(/<\/div>\s*<div>/gi, '<br>')
+        // Convert div breaks to <br> for consistent rendering
+        .replace(/<\/div>\s*<div[^>]*>/gi, '<br>')
         .replace(/<div><br\s*\/?><\/div>/gi, '<br>')
-        .replace(/<div>/gi, '<br>')
+        .replace(/<div[^>]*>/gi, '<br>')
         .replace(/<\/div>/gi, '')
         // Strip all tags except allowed ones (b, i, u, a, br, h2, h3, ol, ul, li, blockquote)
         .replace(/<h1[^>]*>/gi, '<h2>')
@@ -264,8 +269,12 @@ function sanitizeArticleHtml(html) {
         .replace(/(<\/[ou]l>)\s*<br\s*\/?>/gi, '$1')
         .replace(/<br\s*\/?>\s*(<blockquote>)/gi, '$1')
         .replace(/(<\/blockquote>)\s*<br\s*\/?>/gi, '$1')
+        // Collapse 3+ consecutive <br> into double <br> (max one paragraph break)
+        .replace(/(<br\s*\/?>){3,}/gi, '<br><br>')
         // Clean up leading <br> tags
         .replace(/^(<br\s*\/?>)+/i, '')
+        // Clean up trailing <br> tags
+        .replace(/(<br\s*\/?>)+$/i, '')
         .trim();
     return result;
 }
@@ -331,7 +340,7 @@ function renderEntries(entries, isOwner) {
 
 const sharedStyles = `
     * { box-sizing: border-box; }
-    html { width: 100%; overflow-x: hidden; }
+    html { width: 100%; overflow-x: clip; }
     :root {
         --bg-body: #ffffff;
         --bg-card: #ffffff;
@@ -346,7 +355,7 @@ const sharedStyles = `
         --text-muted: #999999;
         --separator-color: #1a1a1a;
     }
-    html, body { overflow-x: hidden; overscroll-behavior-x: none; width: 100%; }
+    html, body { overflow-x: clip; overscroll-behavior-x: none; width: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
     img, textarea, input, select, button { max-width: 100%; }
     header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 30px; padding-bottom: 10px; position: relative; min-height: 44px; }
@@ -1860,7 +1869,7 @@ app.get('/help', (req, res) => {
 
 // Articles styles (additional to shared)
 const articleStyles = `
-    .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); }
+    .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; }
     .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; }
     .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
     [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
@@ -1956,7 +1965,8 @@ app.get('/articles', async (req, res) => {
 
 // New article form
 app.get('/articles/new', requireOwner, (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
     const bodyContent = `
         <style>${articleStyles}</style>
         <form id="articleForm" style="margin:0;">
@@ -1996,12 +2006,78 @@ app.get('/articles/new', requireOwner, (req, res) => {
             document.getElementById('article-content').focus();
         }
         function insertLink() {
-            var url = prompt('Enter URL:');
-            if (url) {
-                document.execCommand('createLink', false, url);
-                document.getElementById('article-content').focus();
+            var sel = window.getSelection();
+            var anchor = null;
+            if (sel.rangeCount > 0) {
+                var node = sel.anchorNode;
+                while (node && node !== document.getElementById('article-content')) {
+                    if (node.tagName === 'A') { anchor = node; break; }
+                    node = node.parentNode;
+                }
             }
+            if (anchor) {
+                var action = prompt('Current URL: ' + anchor.href + '\\n\\nEdit URL or clear the field and press OK to remove the link:', anchor.href);
+                if (action === null) return; // cancelled
+                if (action.trim() === '') {
+                    // Remove the link, keep the text
+                    while (anchor.firstChild) anchor.parentNode.insertBefore(anchor.firstChild, anchor);
+                    anchor.parentNode.removeChild(anchor);
+                } else {
+                    anchor.href = action.trim();
+                }
+            } else {
+                var url = prompt('Enter URL:');
+                if (url) {
+                    document.execCommand('createLink', false, url);
+                }
+            }
+            document.getElementById('article-content').focus();
         }
+        // Strip external styling on paste, preserving only allowed formatting and structure
+        document.getElementById('article-content').addEventListener('paste', function(e) {
+            e.preventDefault();
+            var html = e.clipboardData.getData('text/html');
+            var text = e.clipboardData.getData('text/plain');
+            if (html) {
+                // Parse the HTML and strip styling while preserving structure
+                var temp = document.createElement('div');
+                temp.innerHTML = html;
+                // Remove all style attributes, class attributes, and font/span wrappers
+                temp.querySelectorAll('[style]').forEach(function(el) { el.removeAttribute('style'); });
+                temp.querySelectorAll('[class]').forEach(function(el) { el.removeAttribute('class'); });
+                temp.querySelectorAll('[color]').forEach(function(el) { el.removeAttribute('color'); });
+                temp.querySelectorAll('[face]').forEach(function(el) { el.removeAttribute('face'); });
+                temp.querySelectorAll('[size]').forEach(function(el) { el.removeAttribute('size'); });
+                // Unwrap font and span tags (keep their content)
+                temp.querySelectorAll('font, span').forEach(function(el) {
+                    while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                    el.parentNode.removeChild(el);
+                });
+                // Strip disallowed tags but keep content (everything except b, i, u, a, br, p, div, h1-h3, ol, ul, li, blockquote)
+                var allowed = ['B','I','U','A','BR','P','DIV','H1','H2','H3','OL','UL','LI','BLOCKQUOTE'];
+                temp.querySelectorAll('*').forEach(function(el) {
+                    if (allowed.indexOf(el.tagName) === -1) {
+                        while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                        el.parentNode.removeChild(el);
+                    }
+                });
+                // Remove all remaining attributes except href on <a>
+                temp.querySelectorAll('*').forEach(function(el) {
+                    var attrs = Array.from(el.attributes);
+                    attrs.forEach(function(attr) {
+                        if (!(el.tagName === 'A' && attr.name === 'href')) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+                document.execCommand('insertHTML', false, temp.innerHTML);
+            } else if (text) {
+                // Plain text paste: convert line breaks to <br>
+                var escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                var htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                document.execCommand('insertHTML', false, htmlText);
+            }
+        });
         function confirmCancel() {
             var title = document.getElementById('article-title').value.trim();
             var content = document.getElementById('article-content').innerHTML.trim();
@@ -2165,7 +2241,8 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
         const article = await db.get('SELECT * FROM articles WHERE id = ?', [req.params.id]);
         if (!article) return res.status(404).send('Article not found.');
 
-        const articleDate = new Date(article.timestamp).toISOString().split('T')[0];
+        const artDate = new Date(article.timestamp);
+        const articleDate = artDate.getFullYear() + '-' + String(artDate.getMonth() + 1).padStart(2, '0') + '-' + String(artDate.getDate()).padStart(2, '0');
 
         const bodyContent = `
             <style>${articleStyles}</style>
@@ -2208,12 +2285,71 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 document.getElementById('article-content').focus();
             }
             function insertLink() {
-                var url = prompt('Enter URL:');
-                if (url) {
-                    document.execCommand('createLink', false, url);
-                    document.getElementById('article-content').focus();
+                var sel = window.getSelection();
+                var anchor = null;
+                if (sel.rangeCount > 0) {
+                    var node = sel.anchorNode;
+                    while (node && node !== document.getElementById('article-content')) {
+                        if (node.tagName === 'A') { anchor = node; break; }
+                        node = node.parentNode;
+                    }
                 }
+                if (anchor) {
+                    var action = prompt('Current URL: ' + anchor.href + '\\n\\nEdit URL or clear the field and press OK to remove the link:', anchor.href);
+                    if (action === null) return;
+                    if (action.trim() === '') {
+                        while (anchor.firstChild) anchor.parentNode.insertBefore(anchor.firstChild, anchor);
+                        anchor.parentNode.removeChild(anchor);
+                    } else {
+                        anchor.href = action.trim();
+                    }
+                } else {
+                    var url = prompt('Enter URL:');
+                    if (url) {
+                        document.execCommand('createLink', false, url);
+                    }
+                }
+                document.getElementById('article-content').focus();
             }
+            // Strip external styling on paste, preserving only allowed formatting and structure
+            document.getElementById('article-content').addEventListener('paste', function(e) {
+                e.preventDefault();
+                var html = e.clipboardData.getData('text/html');
+                var text = e.clipboardData.getData('text/plain');
+                if (html) {
+                    var temp = document.createElement('div');
+                    temp.innerHTML = html;
+                    temp.querySelectorAll('[style]').forEach(function(el) { el.removeAttribute('style'); });
+                    temp.querySelectorAll('[class]').forEach(function(el) { el.removeAttribute('class'); });
+                    temp.querySelectorAll('[color]').forEach(function(el) { el.removeAttribute('color'); });
+                    temp.querySelectorAll('[face]').forEach(function(el) { el.removeAttribute('face'); });
+                    temp.querySelectorAll('[size]').forEach(function(el) { el.removeAttribute('size'); });
+                    temp.querySelectorAll('font, span').forEach(function(el) {
+                        while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                        el.parentNode.removeChild(el);
+                    });
+                    var allowed = ['B','I','U','A','BR','P','DIV','H1','H2','H3','OL','UL','LI','BLOCKQUOTE'];
+                    temp.querySelectorAll('*').forEach(function(el) {
+                        if (allowed.indexOf(el.tagName) === -1) {
+                            while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+                            el.parentNode.removeChild(el);
+                        }
+                    });
+                    temp.querySelectorAll('*').forEach(function(el) {
+                        var attrs = Array.from(el.attributes);
+                        attrs.forEach(function(attr) {
+                            if (!(el.tagName === 'A' && attr.name === 'href')) {
+                                el.removeAttribute(attr.name);
+                            }
+                        });
+                    });
+                    document.execCommand('insertHTML', false, temp.innerHTML);
+                } else if (text) {
+                    var escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    var htmlText = escaped.replace(/\\r\\n|\\r|\\n/g, '<br>');
+                    document.execCommand('insertHTML', false, htmlText);
+                }
+            });
             var articleSaved = false;
             window.addEventListener('beforeunload', function(e) {
                 if (!articleSaved) {
