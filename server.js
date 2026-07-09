@@ -483,7 +483,7 @@ const sharedStyles = `
     .back-to-top { position: fixed; right: 32px; bottom: 28px; color: var(--text-main); text-decoration: none; font-size: 1.1rem; opacity: 0; transition: opacity 0.2s ease; z-index: 1000; cursor: pointer; user-select: none; }
     .back-to-top.visible { opacity: 0.6; }
     .back-to-top:hover { opacity: 1; }
-    .site-footer { margin-top: 50px; padding: 20px 0; border-top: 1px solid var(--separator-color); font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; text-align: center; }
+    .site-footer { margin-top: 50px; padding: 20px 0; border-top: 1px solid var(--separator-color); font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; text-align: left; }
     .auth-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
     .auth-link:hover { color: var(--text-main); }
     .login-form { margin-bottom: 30px; }
@@ -812,10 +812,13 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 btn.textContent = 'deleting...';
                 btn.disabled = true;
                 var entry = form.closest('.entry');
+                var isArticle = form.action.indexOf('/articles/') !== -1;
                 fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function(response) {
                     if (!response.ok) throw new Error('Delete failed');
-                    if (entry) {
+                    if (isArticle) {
+                        window.location.href = '/articles';
+                    } else if (entry) {
                         entry.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
                         entry.style.opacity = '0';
                         setTimeout(function() { entry.style.maxHeight = '0'; entry.style.marginBottom = '0'; entry.style.paddingBottom = '0'; entry.style.overflow = 'hidden'; }, 50);
@@ -824,7 +827,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 })
                 .catch(function() {
                     if (btn) { btn.textContent = 'delete'; btn.disabled = false; btn.dataset.confirming = ''; }
-                    alert('Failed to delete post.');
+                    alert('Failed to delete.');
                 });
                 return false;
             }
@@ -1875,8 +1878,10 @@ const articleStyles = `
     .article-body { line-height: 1.6; font-size: 1.01rem; }
     .article-body p { margin: 0 0 1em 0; }
     .article-body p:last-child { margin-bottom: 0; }
-    .article-body h2, .article-content-editor h2 { font-size: 1.2rem; font-weight: 600; margin: 0.7em 0 0.3em 0; line-height: 1.3; }
-    .article-body h3, .article-content-editor h3 { font-size: 1.05rem; font-weight: 600; margin: 0.6em 0 0.2em 0; line-height: 1.3; }
+    .article-body h2, .article-content-editor h2 { font-size: 1.25rem; font-weight: 600; margin: 1.8em 0 0.6em 0; line-height: 1.3; }
+    .article-body h3, .article-content-editor h3 { font-size: 1.08rem; font-weight: 600; margin: 1.4em 0 0.4em 0; line-height: 1.3; }
+    .article-body h2:first-child, .article-content-editor h2:first-child { margin-top: 0; }
+    .article-body h3:first-child, .article-content-editor h3:first-child { margin-top: 0; }
     .article-body ul, .article-body ol, .article-content-editor ul, .article-content-editor ol { margin: 0.4em 0; padding-left: 1.5em; }
     .article-body li, .article-content-editor li { margin-bottom: 0.2em; }
     .article-body blockquote, .article-content-editor blockquote { margin: 0.5em 0; padding: 0.4em 0 0.4em 1em; border-left: 3px solid var(--separator-color); color: var(--text-muted); font-style: italic; }

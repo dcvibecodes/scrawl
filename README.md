@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.3.0**
+**Version 2.4.0**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -187,6 +187,17 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.4.0
+
+#### Changed
+
+- H2 and H3 headings in articles now have more breathing room (1.8em/1.4em top margin) for better visual separation between sections
+- Footer text is now left-aligned within the content area
+
+#### Fixed
+
+- Article delete now redirects to `/articles` list after successful deletion instead of staying on the deleted article's page
 
 ### Version 2.3.0
 
