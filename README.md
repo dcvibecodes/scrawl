@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.4.0**
+**Version 2.5.0**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -22,7 +22,7 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - No character limit
 - Word and character counter
 - Long posts (280+ chars) collapsed with click-to-expand
-- Actions: permalink, copy text, edit, delete
+- Actions: permalink, copy text, copy link, edit, delete
 
 ### Articles
 
@@ -37,7 +37,7 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - Backdating — set a custom date for imported articles
 - Web Share API for native device sharing
 - Unsaved changes protection (browser warns before navigating away)
-- Actions: permalink, copy link, share, edit, delete
+- Actions: permalink, copy text, copy link, share, edit, delete
 
 ### Search
 
@@ -52,7 +52,17 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - **post archive** — browse posts by year and month
 - **articles** — article list grouped by year
 - **search** — full-text search icon
-- **gear menu** — settings (title, footer, theme, RSS, help, login/logout)
+- **gear menu** — settings (title, footer, theme, RSS, help, contact, login/logout)
+
+### Contact Page
+
+- Built-in contact form at `/contact` for visitors to send messages to the owner
+- Fields: Name (required), Email (optional), Subject (optional), Message (required)
+- "Message sent" notification on successful submission
+- Owner sees accumulated messages listed latest-first below the form
+- Owner can delete messages (same 2-step confirm pattern as posts/articles)
+- Non-owner users only see the contact form
+- Accessible from gear menu and mobile menu for all users
 
 ### RSS Feeds
 
@@ -80,7 +90,7 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 ### Help Page
 
 - Built-in help at `/help` explaining all features
-- Accessible from the gear menu
+- Accessible from the gear menu and mobile menu
 
 ### Progressive Web App
 
@@ -121,6 +131,7 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 | `/post/:id` | Single post permalink |
 | `/edit/:id` | Edit post (owner) |
 | `/help` | Help page |
+| `/contact` | Contact page (form + messages for owner) |
 | `/feed/posts` | RSS feed for posts |
 | `/feed/articles` | RSS feed for articles |
 | `/sitemap.xml` | XML sitemap |
@@ -165,7 +176,7 @@ All user data is stored in the `data/` directory (git-ignored):
 
 | File | Purpose |
 |------|---------|
-| `scrawl.db` | SQLite database (posts + articles) |
+| `scrawl.db` | SQLite database (posts, articles, messages) |
 | `owner.hash` | bcrypt password hash |
 | `session.secret` | HMAC signing key |
 | `blog-title.txt` | Custom site title |
@@ -187,6 +198,23 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.5.0
+
+#### Added
+
+- Contact page (`/contact`) — visitors can send messages to the owner via a simple form (name, email, subject, message)
+- Owner sees accumulated messages on the contact page, listed latest-first, with delete capability
+- "copy link" action on posts (copies the post URL to clipboard)
+- "copy text" action on articles (copies the article body text to clipboard)
+- Word and character counter on the post edit screen (same as the post writing screen)
+- Help link now appears in the mobile menu (was only in desktop gear dropdown)
+- Contact link in gear menu and mobile menu for all users
+
+#### Changed
+
+- Post edit page "update" action is now a button (matching the article edit page style) instead of a link
+- Buttons are slightly smaller across the app (tighter padding and font size for a more proportional look)
 
 ### Version 2.4.0
 

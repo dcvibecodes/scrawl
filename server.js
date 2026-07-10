@@ -138,6 +138,17 @@ async function initDatabase() {
     `);
 
     await db.exec(`
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT,
+            subject TEXT,
+            content TEXT NOT NULL,
+            timestamp INTEGER NOT NULL
+        )
+    `);
+
+    await db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
         id UNINDEXED,
         content
@@ -321,6 +332,7 @@ function renderEntries(entries, isOwner) {
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
+                    <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
                     ${ownerActions}
                 </div>
             </div>
@@ -381,7 +393,7 @@ const sharedStyles = `
         font-weight: normal;
     }
     button, .btn { background: #000000; color: #ffffff; border: none; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; transition: opacity 0.2s; }
-    button, .btn { padding: 10px 20px; border-radius: 20px; font-size: 0.9rem; margin-top: 15px; }
+    button, .btn { padding: 8px 16px; border-radius: 18px; font-size: 0.85rem; margin-top: 15px; }
     button:hover, .btn:hover { opacity: 0.8; }
     [data-theme="dark"] button, [data-theme="dark"] .btn { background: #ffffff; color: #000000; }
     .entry { background: var(--bg-card); padding: 0; padding-bottom: 25px; margin-bottom: 25px; border-bottom: 1px solid var(--separator-color); max-width: 100%; }
@@ -583,6 +595,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
                     <a href="/help">help</a>
+                    <a href="/contact">contact</a>
                     <a href="/logout">logout</a>
                 </div>
             </span>
@@ -600,6 +613,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
                     <a href="/help">help</a>
+                    <a href="/contact">contact</a>
                     <a href="/login">login</a>
                 </div>
             </span>
@@ -624,8 +638,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         <a href="/archive">post archive</a>
         <a href="/articles">articles</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/logout">logout</a>'
-            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/login">login</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/logout">logout</a>'
+            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
 
@@ -754,6 +768,18 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             }).catch(function() {
                 el.textContent = 'failed';
                 setTimeout(function() { el.textContent = 'copy text'; }, 2000);
+            });
+        };
+
+        // Copy post link
+        window.copyPostLink = function(el, id) {
+            var url = window.location.origin + '/post/' + id;
+            navigator.clipboard.writeText(url).then(function() {
+                el.textContent = 'copied';
+                setTimeout(function() { el.textContent = 'copy link'; }, 2000);
+            }).catch(function() {
+                el.textContent = 'failed';
+                setTimeout(function() { el.textContent = 'copy link'; }, 2000);
             });
         };
 
@@ -1319,6 +1345,7 @@ app.get('/post/:id', async (req, res) => {
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
+                    <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
                     ${ownerActions}
                 </div>
             </div>
@@ -1634,13 +1661,28 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                         if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
                     });
                     </script>
-                    <div class="actions" style="justify-content:flex-start;margin-top:15px;">
-                        <a href="#" class="edit-link" id="updatePostLink" onclick="event.preventDefault();var f=this.closest('form');this.textContent='updating...';this.style.pointerEvents='none';setTimeout(function(){f.requestSubmit();},0);">update</a>
-                        <a href="/post/${entry.id}" class="edit-link">cancel</a>
+                    <div class="char-counter" id="edit-char-counter">0 words &middot; 0 characters</div>
+                    <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
+                        <button type="submit" onclick="this.textContent='Updating...';this.disabled=true;this.closest('form').requestSubmit();">Update</button>
+                        <a href="/post/${entry.id}" class="back-link" style="margin-left:10px;">cancel</a>
                     </div>
                 </form>
             </div>
-            <script>attachAutoResize('edit-box');</script>
+            <script>
+            attachAutoResize('edit-box');
+            (function() {
+                var editBox = document.getElementById('edit-box');
+                var editCounter = document.getElementById('edit-char-counter');
+                function updateCount() {
+                    var text = editBox.value;
+                    var chars = text.length;
+                    var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                    editCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
+                }
+                editBox.addEventListener('input', updateCount);
+                updateCount();
+            })();
+            </script>
         `;
 
         res.send(layoutTemplate({
@@ -1858,6 +1900,207 @@ app.get('/help', (req, res) => {
         isOwner: req.isOwner,
         blogTitle: getBlogTitle()
     }));
+});
+
+// --- Contact Page ---
+
+app.get('/contact', async (req, res) => {
+    try {
+        let messagesHTML = '';
+        if (req.isOwner) {
+            const messages = await db.all('SELECT * FROM messages ORDER BY timestamp DESC');
+            if (messages.length > 0) {
+                messagesHTML = `
+                    <div style="margin-top:40px;border-top:1px solid var(--separator-color);padding-top:30px;">
+                        <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:20px;">Messages (<span id="msgCount">${messages.length}</span>)</h2>
+                        ${messages.map(msg => `
+                            <div class="entry">
+                                <div class="date" title="${new Date(msg.timestamp).toLocaleString()}">${formatDate(msg.timestamp)}</div>
+                                <div style="margin-bottom:6px;">
+                                    <strong style="font-size:0.9rem;">${escapeHtml(msg.name)}</strong>
+                                    ${msg.email ? `<span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px;">${escapeHtml(msg.email)}</span>` : ''}
+                                </div>
+                                ${msg.subject ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(msg.subject)}</div>` : ''}
+                                <div class="content" style="margin-bottom:12px;">${escapeHtml(msg.content)}</div>
+                                <div class="actions">
+                                    <form action="/contact/${msg.id}/delete" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
+                                        <button type="submit" class="delete-btn">delete</button>
+                                    </form>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                messagesHTML = `
+                    <div style="margin-top:40px;border-top:1px solid var(--separator-color);padding-top:30px;">
+                        <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:20px;">Messages</h2>
+                        <p class="no-entries">No messages yet.</p>
+                    </div>
+                `;
+            }
+        }
+
+        const bodyContent = `
+            <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">Contact</h2>
+            <form id="contactForm" action="/contact" method="POST" style="margin:0;">
+                <input type="text" name="name" placeholder="Name *" required style="margin-bottom:10px;">
+                <input type="text" name="email" placeholder="Email (optional)" style="margin-bottom:10px;">
+                <input type="text" name="subject" placeholder="Subject (optional)" style="margin-bottom:10px;">
+                <textarea
+                    id="contact-message"
+                    name="content"
+                    placeholder="Your message *"
+                    required
+                    style="min-height:100px;"
+                    oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
+                ></textarea>
+                <div class="publish-row">
+                    <button type="submit">Send Message</button>
+                </div>
+            </form>
+            <div id="contactNotification" style="display:none;margin-top:15px;font-size:0.85rem;color:var(--text-muted);"></div>
+            ${messagesHTML}
+            <script>
+            (function() {
+                var form = document.getElementById('contactForm');
+                var notification = document.getElementById('contactNotification');
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    var btn = form.querySelector('button[type="submit"]');
+                    btn.textContent = 'Sending...';
+                    btn.disabled = true;
+                    fetch('/contact', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: JSON.stringify({
+                            name: form.name.value.trim(),
+                            email: form.email.value.trim(),
+                            subject: form.subject.value.trim(),
+                            content: form.content.value.trim()
+                        })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            notification.textContent = 'Message sent.';
+                            notification.style.display = 'block';
+                            form.reset();
+                            setTimeout(function() { notification.style.display = 'none'; }, 4000);
+                        } else {
+                            notification.textContent = data.error || 'Failed to send message.';
+                            notification.style.display = 'block';
+                        }
+                        btn.textContent = 'Send Message';
+                        btn.disabled = false;
+                    })
+                    .catch(function() {
+                        notification.textContent = 'Failed to send message.';
+                        notification.style.display = 'block';
+                        btn.textContent = 'Send Message';
+                        btn.disabled = false;
+                    });
+                });
+
+                // Update message count after deletion
+                var msgCount = document.getElementById('msgCount');
+                if (msgCount) {
+                    var observer = new MutationObserver(function(mutations) {
+                        for (var i = 0; i < mutations.length; i++) {
+                            if (mutations[i].removedNodes.length > 0) {
+                                var remaining = document.querySelectorAll('form[action^="/contact/"][action$="/delete"]').length;
+                                observer.disconnect();
+                                msgCount.textContent = remaining;
+                                observer.observe(document.querySelector('.main-content'), { childList: true, subtree: true });
+                                break;
+                            }
+                        }
+                    });
+                    observer.observe(document.querySelector('.main-content'), { childList: true, subtree: true });
+                }
+            })();
+            </script>
+        `;
+
+        res.send(layoutTemplate({
+            title: 'Contact',
+            bodyContent,
+            isOwner: req.isOwner,
+            blogTitle: getBlogTitle()
+        }));
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error loading contact page.');
+    }
+});
+
+app.post('/contact', async (req, res) => {
+    try {
+        let name, email, subject, content;
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            name = req.body.name;
+            email = req.body.email;
+            subject = req.body.subject;
+            content = req.body.content;
+        } else {
+            name = req.body.name;
+            email = req.body.email;
+            subject = req.body.subject;
+            content = req.body.content;
+        }
+
+        if (!name || !name.trim()) {
+            if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+                return res.status(400).json({ success: false, error: 'Name is required.' });
+            }
+            return res.redirect('/contact');
+        }
+
+        if (!content || !content.trim()) {
+            if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+                return res.status(400).json({ success: false, error: 'Message is required.' });
+            }
+            return res.redirect('/contact');
+        }
+
+        const id = generateId();
+        const timestamp = Date.now();
+
+        await db.run(
+            'INSERT INTO messages (id, name, email, subject, content, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+            [id, name.trim(), email ? email.trim() : null, subject ? subject.trim() : null, content.trim(), timestamp]
+        );
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.json({ success: true });
+        }
+
+        res.redirect('/contact');
+    } catch (err) {
+        console.error(err);
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.status(500).json({ success: false, error: 'Failed to send message.' });
+        }
+        res.status(500).send('Error sending message.');
+    }
+});
+
+app.post('/contact/:id/delete', requireOwner, async (req, res) => {
+    try {
+        await db.run('DELETE FROM messages WHERE id = ?', [req.params.id]);
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.json({ success: true });
+        }
+
+        res.redirect('/contact');
+    } catch (err) {
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.status(500).json({ success: false });
+        }
+        res.status(500).send('Error deleting message.');
+    }
 });
 
 // --- Articles Routes ---
@@ -2325,6 +2568,7 @@ app.get('/articles/:id', async (req, res) => {
                 <div class="article-body">${article.content}</div>
                 <div class="actions" style="margin-top:20px;">
                     <a href="/articles/${article.id}" class="permalink" title="Permalink">#</a>
+                    <span class="copy-link" onclick="copyArticleText(this)">copy text</span>
                     <span class="copy-link" onclick="copyArticleLink(this)">copy link</span>
                     <button type="button" class="share-btn" onclick="shareArticle()">share</button>
                     ${ownerActions}
@@ -2332,6 +2576,17 @@ app.get('/articles/:id', async (req, res) => {
             </article>
             <p style="margin-top:30px;"><a href="/articles" class="back-link">&larr; back to articles</a></p>
             <script>
+            function copyArticleText(el) {
+                var body = document.querySelector('.article-body');
+                var text = body ? body.innerText : '';
+                navigator.clipboard.writeText(text).then(function() {
+                    el.textContent = 'copied';
+                    setTimeout(function() { el.textContent = 'copy text'; }, 2000);
+                }).catch(function() {
+                    el.textContent = 'failed';
+                    setTimeout(function() { el.textContent = 'copy text'; }, 2000);
+                });
+            }
             function copyArticleLink(el) {
                 navigator.clipboard.writeText(window.location.href).then(function() {
                     el.textContent = 'copied';
