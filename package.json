@@ -1,6 +1,6 @@
 {
   "name": "scrawl",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "A personal publishing space for quick posts and long-form articles",
   "main": "index.js",
   "scripts": {

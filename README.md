@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 2.5.0**
+**Version 2.5.1**
 
 A minimalist personal publishing space for quick posts and long-form articles.
 
@@ -198,6 +198,16 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 ---
 
 ## Changelog
+
+### Version 2.5.1
+
+#### Added
+
+- Word and character counter on article compose and article edit screens (same style as posts)
+
+#### Fixed
+
+- Post edit screen word/character counter now works correctly (counts on load and on input)
 
 ### Version 2.5.0
 

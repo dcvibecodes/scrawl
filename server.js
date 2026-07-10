@@ -1669,8 +1669,8 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 </form>
             </div>
             <script>
-            attachAutoResize('edit-box');
-            (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                attachAutoResize('edit-box');
                 var editBox = document.getElementById('edit-box');
                 var editCounter = document.getElementById('edit-char-counter');
                 function updateCount() {
@@ -1681,7 +1681,7 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 }
                 editBox.addEventListener('input', updateCount);
                 updateCount();
-            })();
+            });
             </script>
         `;
 
@@ -2236,6 +2236,7 @@ app.get('/articles/new', requireOwner, (req, res) => {
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
             <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
+            <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                 <button type="button" onclick="submitArticle('published')">Publish</button>
                 <button type="button" onclick="submitArticle('draft')" style="background:var(--separator-color);color:var(--text-main);">Save as draft</button>
@@ -2473,6 +2474,19 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 e.returnValue = '';
             }
         });
+        // Article word/character counter
+        (function() {
+            var editor = document.getElementById('article-content');
+            var counter = document.getElementById('article-char-counter');
+            function updateArticleCount() {
+                var text = editor.innerText || '';
+                var chars = text.length;
+                var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                counter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
+            }
+            editor.addEventListener('input', updateArticleCount);
+            updateArticleCount();
+        })();
         function submitArticle(status) {
             var title = document.getElementById('article-title').value.trim();
             var content = document.getElementById('article-content').innerHTML.trim();
@@ -2651,6 +2665,7 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 </div>
                 <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
                 <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
+                <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
                 <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                     <button type="button" onclick="updateArticle('published')">
                         ${article.status === 'draft' ? 'Publish' : 'Update'}
@@ -2861,6 +2876,19 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     e.returnValue = '';
                 }
             });
+            // Article word/character counter
+            (function() {
+                var editor = document.getElementById('article-content');
+                var counter = document.getElementById('article-char-counter');
+                function updateArticleCount() {
+                    var text = editor.innerText || '';
+                    var chars = text.length;
+                    var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                    counter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
+                }
+                editor.addEventListener('input', updateArticleCount);
+                updateArticleCount();
+            })();
             function updateArticle(status) {
                 var title = document.getElementById('article-title').value.trim();
                 var content = document.getElementById('article-content').innerHTML.trim();
