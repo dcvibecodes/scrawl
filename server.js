@@ -102,6 +102,21 @@ app.use((req, res, next) => {
     next();
 });
 
+// Pending counts for owner (comments + messages)
+app.use(async (req, res, next) => {
+    req.pendingComments = 0;
+    req.pendingMessages = 0;
+    if (req.isOwner && db) {
+        try {
+            const { c: pc } = await db.get('SELECT COUNT(*) AS c FROM comments WHERE is_owner = 0 AND approved = 0');
+            req.pendingComments = pc;
+            const { c: pm } = await db.get('SELECT COUNT(*) AS c FROM messages');
+            req.pendingMessages = pm;
+        } catch (e) {}
+    }
+    next();
+});
+
 // Auth guard middleware for write operations
 function requireOwner(req, res, next) {
     if (!req.isOwner) {
@@ -550,7 +565,7 @@ const sharedStyles = `
     }
 `;
 
-const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta }) =>  {
+const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta, pendingComments, pendingMessages }) =>  {
     const copyrightText = copyright !== undefined ? copyright : getCopyright();
     // Build social/SEO meta tags
     let metaTags = '';
@@ -652,11 +667,11 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="#" id="editOwnerName">edit name</a>
                     <a href="#" id="editCopyright">edit footer</a>
                     <a href="#" id="themeToggle">dark</a>
-                    <a href="/comments">comments</a>
+                    <a href="/comments">comments${pendingComments ? ` (${pendingComments})` : ''}</a>
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
                     <a href="/help">help</a>
-                    <a href="/contact">contact</a>
+                    <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
                     <a href="/logout">logout</a>
                 </div>
             </span>
@@ -700,7 +715,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         <a href="/archive">post archive</a>
         <a href="/articles">articles</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="/comments">comments</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/logout">logout</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
             : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
@@ -1419,6 +1434,8 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
             isOwner: req.isOwner,
             blogTitle: getBlogTitle(),
             searchQuery,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             meta: {
                 title: getBlogTitle(),
                 description: (getOwnerName() ? getOwnerName() + ' — ' : '') + 'A personal publishing space for quick posts and long-form articles.',
@@ -1475,6 +1492,8 @@ app.get('/post/:id', async (req, res) => {
             title: 'Post',
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle(),
             meta: {
                 title: getBlogTitle(),
@@ -1734,6 +1753,8 @@ app.get('/archive', async (req, res) => {
             title: 'Post Archive',
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
