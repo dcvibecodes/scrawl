@@ -2944,7 +2944,7 @@ app.get('/articles/:id', async (req, res) => {
 
                 // Show posting state
                 var originalText = btn.textContent;
-                btn.textContent = 'posting...';
+                btn.textContent = 'Posting...';
                 statusEl.textContent = '';
 
                 fetch('/api/comments', {
