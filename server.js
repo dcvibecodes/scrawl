@@ -511,6 +511,8 @@ const sharedStyles = `
     .mobile-random-btn.loading svg {
     animation: spin 1s linear infinite;
 }
+    .mobile-articles-btn { display: none; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; opacity: 0.7; transition: color 0.2s ease, opacity 0.2s ease; }
+    .mobile-articles-btn:hover { color: var(--text-main); opacity: 1; }
 
     @keyframes spin {
         from { transform: rotate(0deg); }
@@ -530,11 +532,14 @@ const sharedStyles = `
     .gear-dropdown a { display: block; padding: 8px 16px; color: var(--text-main); text-decoration: none; font-size: 0.85rem; }
     .gear-dropdown a:hover { background: var(--separator-color); }
     [data-theme="dark"] .gear-dropdown { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-    .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-body); z-index: 3000; padding: 30px 24px; }
-    .mobile-menu.open { display: flex; flex-direction: column; }
+    .mobile-menu { position: fixed; top: 0; right: 0; bottom: 0; width: 260px; max-width: 80vw; background: var(--bg-body); z-index: 3000; padding: 30px 24px; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; box-shadow: -2px 0 12px rgba(0,0,0,0.08); }
+    .mobile-menu.open { transform: translateX(0); }
+    .mobile-menu-backdrop { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 2999; opacity: 0; transition: opacity 0.25s ease; touch-action: none; }
+    .mobile-menu-backdrop.open { display: block; opacity: 1; }
     .mobile-menu-close { background: none !important; border: none; padding: 0; color: var(--text-muted); cursor: pointer; font-size: 1.6rem; line-height: 1; align-self: flex-end; opacity: 0.6; margin-bottom: 30px; }
     .mobile-menu-close:hover { opacity: 1; }
     [data-theme="dark"] .mobile-menu-close { background: none !important; color: var(--text-muted); }
+    [data-theme="dark"] .mobile-menu { box-shadow: -2px 0 12px rgba(0,0,0,0.4); }
     .mobile-menu a { display: block; color: var(--text-main); text-decoration: none; font-size: 0.9rem; padding: 12px 0; border-bottom: 1px solid var(--separator-color); }
     .mobile-menu a:last-child { border-bottom: none; }
     .mobile-menu a:hover { color: var(--text-muted); }
@@ -559,6 +564,7 @@ const sharedStyles = `
         .desktop-nav { display: none; }
         .hamburger-btn { display: block; }
         .mobile-random-btn { display: block; }
+        .mobile-articles-btn { display: block; }
         .gear-wrapper { display: none; }
         .inline-search .header-separator { display: none; }
         .header-controls { gap: 14px; }
@@ -630,8 +636,6 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         <div class="desktop-nav">
             <a href="/random" class="random-link">random</a>
             <span class="header-separator">&middot;</span>
-            <a href="/archive" class="random-link">post archive</a>
-            <span class="header-separator">&middot;</span>
             <a href="/articles" class="random-link">articles</a>
         </div>
             <a href="/random" class="mobile-random-btn" aria-label="Random">
@@ -643,6 +647,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <line x1="4" y1="4" x2="9" y2="9"></line>
                 </svg>
             </a>
+            <a href="/articles" class="mobile-articles-btn">articles</a>
             <span class="inline-search" id="headerInlineSearch" style="margin:0;padding:0;">
                 <span class="header-separator">&middot;</span>
                 <button type="button" class="search-icon-btn" id="searchOpenBtn" aria-label="Search" style="margin-top:0;">
@@ -663,6 +668,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     </svg>
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
+                    <a href="/archive">post archive</a>
                     <a href="#" id="editBlogTitle">edit title</a>
                     <a href="#" id="editOwnerName">edit name</a>
                     <a href="#" id="editCopyright">edit footer</a>
@@ -670,7 +676,6 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="/comments">comments${pendingComments ? ` (${pendingComments})` : ''}</a>
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
-                    <a href="/help">help</a>
                     <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
                     <a href="/logout">logout</a>
                 </div>
@@ -686,10 +691,10 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     </svg>
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
+                    <a href="/archive">post archive</a>
                     <a href="#" id="themeToggle">dark</a>
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
-                    <a href="/help">help</a>
                     <a href="/contact">contact</a>
                     <a href="/login">login</a>
                 </div>
@@ -709,14 +714,14 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         </div>
     </header>
 
-    <!-- Mobile menu overlay -->
+    <!-- Mobile menu drawer -->
+    <div class="mobile-menu-backdrop" id="mobileMenuBackdrop"></div>
     <div class="mobile-menu" id="mobileMenu">
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
         <a href="/archive">post archive</a>
-        <a href="/articles">articles</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
-            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/login">login</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="#" id="mobileEditCopyright">edit footer</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
+            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
 
@@ -731,11 +736,28 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         var hamburger = document.getElementById('hamburgerBtn');
         var mobileMenu = document.getElementById('mobileMenu');
         var mobileMenuClose = document.getElementById('mobileMenuClose');
+        var mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
+        function openMobileMenu() {
+            mobileMenu.classList.add('open');
+            mobileMenuBackdrop.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+        }
+        function closeMobileMenu() {
+            mobileMenu.classList.remove('open');
+            mobileMenuBackdrop.classList.remove('open');
+            document.body.style.overflow = '';
+            document.documentElement.style.overflow = '';
+        }
         if (hamburger) {
-            hamburger.addEventListener('click', function() { mobileMenu.classList.add('open'); });
+            hamburger.addEventListener('click', openMobileMenu);
         }
         if (mobileMenuClose) {
-            mobileMenuClose.addEventListener('click', function() { mobileMenu.classList.remove('open'); });
+            mobileMenuClose.addEventListener('click', closeMobileMenu);
+        }
+        if (mobileMenuBackdrop) {
+            mobileMenuBackdrop.addEventListener('click', closeMobileMenu);
+            mobileMenuBackdrop.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
         }
         var mobileTheme = document.getElementById('mobileThemeToggle');
         if (mobileTheme) {
@@ -752,7 +774,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     mobileTheme.textContent = 'light';
                     localStorage.setItem('theme', 'dark');
                 }
-                mobileMenu.classList.remove('open');
+                closeMobileMenu();
             });
         }
 
@@ -1017,37 +1039,48 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         if (mobileEditTitle) {
             mobileEditTitle.addEventListener('click', function(e) {
                 e.preventDefault();
-                mobileMenu.classList.remove('open');
+                closeMobileMenu();
                 doEditTitle();
             });
         }
 
         // Copyright/footer edit
         var editCopyright = document.getElementById('editCopyright');
+        var mobileEditCopyright = document.getElementById('mobileEditCopyright');
+        function doEditCopyright() {
+            var footer = document.querySelector('.site-footer');
+            var currentText = footer ? footer.textContent.trim() : '';
+            var newText = prompt('Footer text (leave empty to remove):', currentText);
+            if (newText === null) return;
+            fetch('/api/copyright', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: newText.trim() })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) throw new Error();
+                if (data.text) {
+                    if (footer) { footer.textContent = data.text; }
+                    else { var f = document.createElement('footer'); f.className = 'site-footer'; f.textContent = data.text; document.querySelector('.container').after(f); }
+                } else {
+                    if (footer) footer.remove();
+                }
+            })
+            .catch(function() { alert('Failed to save footer'); });
+        }
         if (editCopyright) {
             editCopyright.addEventListener('click', function(e) {
                 e.preventDefault();
                 if (gearDropdown) gearDropdown.classList.remove('open');
-                var footer = document.querySelector('.site-footer');
-                var currentText = footer ? footer.textContent.trim() : '';
-                var newText = prompt('Footer text (leave empty to remove):', currentText);
-                if (newText === null) return;
-                fetch('/api/copyright', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: newText.trim() })
-                })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (!data.success) throw new Error();
-                    if (data.text) {
-                        if (footer) { footer.textContent = data.text; }
-                        else { var f = document.createElement('footer'); f.className = 'site-footer'; f.textContent = data.text; document.querySelector('.container').after(f); }
-                    } else {
-                        if (footer) footer.remove();
-                    }
-                })
-                .catch(function() { alert('Failed to save footer'); });
+                doEditCopyright();
+            });
+        }
+        if (mobileEditCopyright) {
+            mobileEditCopyright.addEventListener('click', function(e) {
+                e.preventDefault();
+                closeMobileMenu();
+                doEditCopyright();
             });
         }
 
@@ -1084,7 +1117,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         if (mobileEditOwnerName) {
             mobileEditOwnerName.addEventListener('click', function(e) {
                 e.preventDefault();
-                mobileMenu.classList.remove('open');
+                closeMobileMenu();
                 doEditOwnerName();
             });
         }
@@ -1375,9 +1408,7 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                 </form>
             `;
         } else {
-            publishSection = `
-                <p class="login-prompt"><a href="/login">Login</a> to publish, edit, and delete posts and articles.</p>
-            `;
+            publishSection = '';
         }
 
         const bodyContent = `
@@ -1898,168 +1929,6 @@ app.post('/delete/:id', requireOwner, async (req, res) => {
     }
 });
 
-// --- Help Page ---
-
-app.get('/help', (req, res) => {
-    const blogTitle = getBlogTitle();
-    const bodyContent = `
-        <style>
-            .help-section { margin-bottom: 30px; }
-            .help-section h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; }
-            .help-section h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; margin-top: 15px; }
-            .help-section p { font-size: 0.9rem; color: var(--text-main); line-height: 1.6; margin-bottom: 8px; }
-            .help-section ul { font-size: 0.9rem; padding-left: 1.5em; margin-bottom: 8px; line-height: 1.6; }
-            .help-section li { margin-bottom: 4px; }
-            .help-section code { background: var(--separator-color); padding: 2px 5px; border-radius: 3px; font-size: 0.82rem; }
-            .help-section kbd { background: var(--separator-color); padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; font-family: inherit; }
-        </style>
-        <h2 style="font-size:1rem;color:var(--text-muted);font-weight:normal;margin-bottom:25px;">Help</h2>
-
-        <div class="help-section">
-            <h2>What is ${escapeHtml(blogTitle)}?</h2>
-            <p>${escapeHtml(blogTitle)} is a personal publishing space with two writing modes: quick posts and long-form articles. It's designed to be fast, minimal, and distraction-free.</p>
-        </div>
-
-        <div class="help-section">
-            <h2>Posts</h2>
-            <p>Posts are short, quick thoughts — like a scratchpad. There's no title, no formatting. Just type and post.</p>
-            <h3>How to create a post</h3>
-            <ul>
-                <li>Log in as the owner</li>
-                <li>On the homepage, type in the text area</li>
-                <li>Click <strong>Post</strong></li>
-            </ul>
-            <h3>Post features</h3>
-            <ul>
-                <li>Plain text only — line breaks are preserved as-is</li>
-                <li>No character limit</li>
-                <li>Word and character counter below the text area</li>
-                <li>Long posts (280+ characters) are collapsed with a "click to expand" preview</li>
-            </ul>
-            <h3>Actions on posts</h3>
-            <ul>
-                <li><strong>#</strong> — permalink to the post</li>
-                <li><strong>copy text</strong> — copies the post content to clipboard</li>
-                <li><strong>edit</strong> — edit the post content (owner only)</li>
-                <li><strong>delete</strong> — delete the post with confirmation (owner only)</li>
-            </ul>
-        </div>
-
-        <div class="help-section">
-            <h2>Articles</h2>
-            <p>Articles are longer-form writing with a title and rich formatting. They live in their own section at <code>/articles</code>.</p>
-            <h3>How to create an article</h3>
-            <ul>
-                <li>Go to <strong>articles</strong> from the navigation</li>
-                <li>Click <strong>New Article</strong></li>
-                <li>Enter a title</li>
-                <li>Optionally change the date (for backdating)</li>
-                <li>Write your content using the formatting toolbar</li>
-                <li>Click <strong>Publish</strong> or <strong>Save as draft</strong></li>
-            </ul>
-            <h3>Formatting options (articles only)</h3>
-            <ul>
-                <li><strong>B</strong> — Bold</li>
-                <li><strong>I</strong> — Italic</li>
-                <li><strong>U</strong> — Underline</li>
-                <li><strong>🔗</strong> — Insert hyperlink</li>
-                <li><strong>H2</strong> — Section heading</li>
-                <li><strong>H3</strong> — Sub-section heading</li>
-                <li><strong>1.</strong> — Numbered list</li>
-                <li><strong>•</strong> — Bullet list</li>
-                <li><strong>"</strong> — Blockquote</li>
-            </ul>
-            <h3>Drafts</h3>
-            <p>Articles can be saved as drafts. Drafts are only visible to the owner and show a "draft" badge. You can publish them later from the edit page.</p>
-            <h3>Backdating</h3>
-            <p>When creating or editing an article, you can set a custom date. This is useful for importing older articles from other platforms.</p>
-            <h3>Actions on articles</h3>
-            <ul>
-                <li><strong>#</strong> — permalink</li>
-                <li><strong>copy link</strong> — copies the article URL to clipboard</li>
-                <li><strong>share</strong> — uses the native share dialog on supported devices (falls back to copy link)</li>
-                <li><strong>edit</strong> / <strong>delete</strong> — owner only</li>
-            </ul>
-            <h3>Unsaved changes protection</h3>
-            <p>If you're writing or editing an article and try to navigate away, the browser will warn you about unsaved changes.</p>
-        </div>
-
-        <div class="help-section">
-            <h2>Navigation</h2>
-            <ul>
-                <li><strong>random</strong> — opens a random post (not articles)</li>
-                <li><strong>post archive</strong> — browse posts by year and month</li>
-                <li><strong>articles</strong> — the articles list, grouped by year</li>
-                <li><strong><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;display:inline;"><circle cx="11" cy="11" r="7"></circle><line x1="16.65" y1="16.65" x2="21" y2="21"></line></svg></strong> — search across both posts and articles</li>
-                <li><strong><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;display:inline;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></strong> — settings menu (theme, title, footer, RSS, login/logout)</li>
-            </ul>
-        </div>
-
-        <div class="help-section">
-            <h2>Search</h2>
-            <p>Search finds results across both posts and articles. It uses full-text search with relevance ranking.</p>
-            <ul>
-                <li>Click the search icon or press <kbd>/</kbd> to open search</li>
-                <li>Type your query and press <kbd>Enter</kbd></li>
-                <li>Press <kbd>Escape</kbd> to close search</li>
-                <li>Results show articles and posts separately</li>
-            </ul>
-        </div>
-
-        <div class="help-section">
-            <h2>Customization</h2>
-            <h3>Changing the site title</h3>
-            <p>Click the gear icon and select <strong>edit title</strong>. Enter the new title in the prompt.</p>
-            <h3>Changing the footer / copyright text</h3>
-            <p>Click the gear icon and select <strong>edit footer</strong>. Enter your copyright or footer text. Leave empty to remove it.</p>
-            <h3>Dark mode</h3>
-            <p>Click the gear icon and select <strong>dark</strong> (or <strong>light</strong> to switch back). Your preference is saved in the browser.</p>
-        </div>
-
-        <div class="help-section">
-            <h2>RSS Feeds</h2>
-            <p>Two separate RSS feeds are available for feed readers:</p>
-            <ul>
-                <li><code>/feed/posts</code> — latest posts</li>
-                <li><code>/feed/articles</code> — latest published articles</li>
-            </ul>
-            <p>Links are also in the gear menu and auto-discoverable by feed readers.</p>
-        </div>
-
-        <div class="help-section">
-            <h2>Keyboard Shortcuts</h2>
-            <ul>
-                <li><kbd>N</kbd> — focus the new post editor (homepage only)</li>
-                <li><kbd>/</kbd> — open search</li>
-                <li><kbd>Escape</kbd> — close search</li>
-            </ul>
-        </div>
-
-        <div class="help-section">
-            <h2>Authentication</h2>
-            <p>Only the owner can create, edit, and delete posts and articles. Visitors can read everything that's published.</p>
-            <h3>First-time setup</h3>
-            <p>On first launch, visit the app and you'll be redirected to <code>/setup</code> to create your password.</p>
-            <h3>Password reset</h3>
-            <p>Delete the file <code>data/owner.hash</code> and restart the server. You'll be prompted to set a new password.</p>
-        </div>
-
-        <div class="help-section">
-            <h2>Progressive Web App</h2>
-            <p>This app can be installed on your phone or desktop as a PWA. Use your browser's "Add to Home Screen" or "Install App" option.</p>
-        </div>
-    `;
-
-    res.send(layoutTemplate({
-        title: 'Help',
-        bodyContent,
-        isOwner: req.isOwner,
-        pendingComments: req.pendingComments || 0,
-        pendingMessages: req.pendingMessages || 0,
-        blogTitle: getBlogTitle()
-    }));
-});
-
 // --- Contact Page ---
 
 app.get('/contact', async (req, res) => {
@@ -2448,7 +2317,7 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
-            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
+            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
             <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                 <button type="button" onclick="submitArticle('published')">Publish</button>
@@ -2462,7 +2331,13 @@ app.get('/articles/new', requireOwner, (req, res) => {
         (function() {
             var editor = document.getElementById('article-content');
             editor.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && e.shiftKey) {
+                    // Shift+Enter: insert line break
+                    e.preventDefault();
+                    if (!document.execCommand('insertLineBreak', false, null)) {
+                        document.execCommand('insertHTML', false, '<br><br>');
+                    }
+                } else if (e.key === 'Enter' && !e.shiftKey) {
                     // If content is bare text (not inside a block element), wrap it first
                     var sel = window.getSelection();
                     if (sel.rangeCount) {
@@ -2480,6 +2355,24 @@ app.get('/articles/new', requireOwner, (req, res) => {
                             document.execCommand('formatBlock', false, '<p>');
                             // Now insert a new paragraph
                             document.execCommand('insertParagraph', false, null);
+                        }
+                    }
+                } else if (e.key === 'Tab') {
+                    // Tab inside a list: indent (create sub-list)
+                    var sel = window.getSelection();
+                    if (sel.rangeCount) {
+                        var node = sel.anchorNode;
+                        while (node && node !== editor) {
+                            if (node.nodeType === 1 && node.tagName === 'LI') {
+                                e.preventDefault();
+                                if (e.shiftKey) {
+                                    document.execCommand('outdent', false, null);
+                                } else {
+                                    document.execCommand('indent', false, null);
+                                }
+                                break;
+                            }
+                            node = node.parentNode;
                         }
                     }
                 }
@@ -2521,8 +2414,11 @@ app.get('/articles/new', requireOwner, (req, res) => {
             updateToolbarState();
         }
         function execLineBreak() {
-            document.execCommand('insertLineBreak', false, null);
-            document.getElementById('article-content').focus();
+            var editor = document.getElementById('article-content');
+            editor.focus();
+            if (!document.execCommand('insertLineBreak', false, null)) {
+                document.execCommand('insertHTML', false, '<br><br>');
+            }
         }
         function getCurrentBlock() {
             var sel = window.getSelection();
@@ -3169,7 +3065,7 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
                 </div>
                 <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
-                <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break within paragraph</div>
+                <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
                 <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
                 <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                     <button type="button" onclick="updateArticle('published')">
@@ -3190,7 +3086,13 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     editor.innerHTML = '<p>' + html + '</p>';
                 }
                 editor.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' && !e.shiftKey) {
+                    if (e.key === 'Enter' && e.shiftKey) {
+                        // Shift+Enter: insert line break
+                        e.preventDefault();
+                        if (!document.execCommand('insertLineBreak', false, null)) {
+                            document.execCommand('insertHTML', false, '<br><br>');
+                        }
+                    } else if (e.key === 'Enter' && !e.shiftKey) {
                         var sel = window.getSelection();
                         if (sel.rangeCount) {
                             var node = sel.anchorNode;
@@ -3206,6 +3108,24 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                                 e.preventDefault();
                                 document.execCommand('formatBlock', false, '<p>');
                                 document.execCommand('insertParagraph', false, null);
+                            }
+                        }
+                    } else if (e.key === 'Tab') {
+                        // Tab inside a list: indent (create sub-list)
+                        var sel = window.getSelection();
+                        if (sel.rangeCount) {
+                            var node = sel.anchorNode;
+                            while (node && node !== editor) {
+                                if (node.nodeType === 1 && node.tagName === 'LI') {
+                                    e.preventDefault();
+                                    if (e.shiftKey) {
+                                        document.execCommand('outdent', false, null);
+                                    } else {
+                                        document.execCommand('indent', false, null);
+                                    }
+                                    break;
+                                }
+                                node = node.parentNode;
                             }
                         }
                     }
@@ -3238,8 +3158,11 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 updateToolbarState();
             }
             function execLineBreak() {
-                document.execCommand('insertLineBreak', false, null);
-                document.getElementById('article-content').focus();
+                var editor = document.getElementById('article-content');
+                editor.focus();
+                if (!document.execCommand('insertLineBreak', false, null)) {
+                    document.execCommand('insertHTML', false, '<br><br>');
+                }
             }
             function getCurrentBlock() {
                 var sel = window.getSelection();

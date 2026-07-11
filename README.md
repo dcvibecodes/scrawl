@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.0.0**
+**Version 3.1.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -71,10 +71,9 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 ### Navigation
 
 - **random** — opens a random post
-- **post archive** — browse posts by year and month
-- **articles** — article list grouped by year
+- **articles** — visible in header on both desktop and mobile
 - **search** — full-text search icon
-- **menu** — hamburger icon with all options (title, name, footer, comments, theme, RSS, help, contact, login/logout)
+- **menu** — hamburger icon with: post archive, settings (title, name, footer), comments, theme, RSS, contact, login/logout
 
 ### Contact Page
 
@@ -166,7 +165,6 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | `/post/:id` | Single post permalink |
 | `/edit/:id` | Edit post (owner) |
 | `/comments` | Comment moderation (owner) |
-| `/help` | Help page |
 | `/contact` | Contact page (form + messages for owner) |
 | `/feed/posts` | RSS feed for posts |
 | `/feed/articles` | RSS feed for articles |
@@ -253,6 +251,36 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.1.0
+
+#### Added
+
+- **Articles link visible on mobile** — "articles" text link now shows directly in the mobile header (between random icon and search icon), no need to open the hamburger menu
+- **Multi-level bullet points** — Tab key indents list items to create nested sub-lists; Shift+Tab outdents them back
+- **Word and character counter on comments** — shows "X words · Y/2000 characters" as the user types, matching the post and article editor pattern
+- **2000 character limit on comments** — server rejects comments exceeding this length with a clear error message
+- **Edit footer in mobile drawer** — "edit footer" option now accessible from the mobile menu (was previously desktop-only)
+- **og:image and twitter:image** — social sharing cards now include the site icon for visual recognition
+
+#### Changed
+
+- Desktop navigation simplified to: random · articles · search · menu (hamburger icon)
+- "Post archive" moved into the hamburger menu (both desktop and mobile) — keeps header clean
+- Mobile drawer slides in from the right with backdrop overlay and scroll lock (standard drawer UX)
+- Tapping the backdrop or × closes the drawer; background page cannot scroll while drawer is open
+- Menu items are now consistent between desktop dropdown and mobile drawer
+
+#### Fixed
+
+- **Shift+Enter on Mac** — explicitly handled in the article editor keydown listener with `insertLineBreak` fallback to `insertHTML('<br>')` for Safari compatibility
+- **Line break button** — `execLineBreak()` now uses the same fallback mechanism for cross-browser reliability
+
+#### Removed
+
+- Help page (`/help`) — removed entirely as it was a maintenance liability during rapid iteration
+- "Login to publish" prompt on homepage — removed; login is accessible from the menu
+- "Articles" link from mobile drawer — redundant since it's now visible directly in the header
 
 ### Version 3.0.0
 
