@@ -2860,7 +2860,7 @@ app.get('/articles/:id', async (req, res) => {
                 <div style="font-size:1.01rem;color:var(--text-muted);margin-bottom:16px;">Discussion</div>
                 <div class="comment-form-wrapper" id="mainCommentForm">
                     <div class="comment-form-row">
-                        <input type="text" id="commentAuthor" placeholder="Discuss as" class="comment-author-input" autocomplete="off" ${req.isOwner && ownerName ? `value="${escapeHtml(ownerName)}" readonly style="opacity:0.6;cursor:default;"` : ''}>
+                        <input type="text" id="commentAuthor" placeholder="Your name" class="comment-author-input" autocomplete="off" ${req.isOwner && ownerName ? `value="${escapeHtml(ownerName)}" readonly style="opacity:0.6;cursor:default;"` : ''}>
                     </div>
                     <div class="comment-form-row">
                         <textarea id="commentContent" placeholder="Write a comment..." class="comment-textarea"></textarea>
@@ -2924,7 +2924,7 @@ app.get('/articles/:id', async (req, res) => {
                 var readonlyAttr = ${req.isOwner && ownerName ? "'readonly style=\"opacity:0.6;cursor:default;\"'" : "''"};
                 var hint = ${req.isOwner ? "''" : "'<div style=\"font-size:0.7rem;color:var(--text-muted);opacity:0.5;margin-bottom:10px;\">Comments cannot be edited after posting.</div>'"};
                 container.innerHTML = '<div class="comment-form-wrapper reply-form">' +
-                    '<div class="comment-form-row"><input type="text" class="comment-author-input reply-author" placeholder="Discuss as" value="' + escapeAttr(saved) + '" ' + readonlyAttr + ' autocomplete="off"></div>' +
+                    '<div class="comment-form-row"><input type="text" class="comment-author-input reply-author" placeholder="Your name" value="' + escapeAttr(saved) + '" ' + readonlyAttr + ' autocomplete="off"></div>' +
                     '<div class="comment-form-row"><textarea class="comment-textarea reply-content" placeholder="Write a reply..."></textarea></div>' +
                     '<div class="char-counter reply-char-counter">0 words \\u00b7 0/2000 characters</div>' +
                     hint +
@@ -3037,6 +3037,8 @@ app.get('/articles/:id', async (req, res) => {
                     if (data.success) {
                         var item = el.closest('.comment-item');
                         item.classList.remove('comment-pending');
+                        var badge = item.querySelector('.comment-pending-badge');
+                        if (badge) badge.remove();
                         el.remove();
                     }
                 })
