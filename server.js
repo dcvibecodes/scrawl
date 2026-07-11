@@ -1532,6 +1532,8 @@ app.get('/archive/year/:year', async (req, res) => {
             title: 'Archive - ' + year,
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -1565,6 +1567,8 @@ app.get('/archive/month/:month', async (req, res) => {
             title: 'Archive - ' + monthName,
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -1599,6 +1603,8 @@ app.get('/archive/:year/:month', async (req, res) => {
             title: 'Archive - ' + monthName + ' ' + year,
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -1837,6 +1843,8 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
             title: 'Edit Post',
             bodyContent,
             isOwner: true,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -2046,6 +2054,8 @@ app.get('/help', (req, res) => {
         title: 'Help',
         bodyContent,
         isOwner: req.isOwner,
+        pendingComments: req.pendingComments || 0,
+        pendingMessages: req.pendingMessages || 0,
         blogTitle: getBlogTitle()
     }));
 });
@@ -2174,6 +2184,8 @@ app.get('/contact', async (req, res) => {
             title: 'Contact',
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
