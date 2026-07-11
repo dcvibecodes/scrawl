@@ -1,10 +1,10 @@
 # Scrawl
 
-**Version 2.5.1**
+**Version 3.0.0**
 
-A minimalist personal publishing space for quick posts and long-form articles.
+A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
-Scrawl evolved from a microblog into a complete writing platform. It keeps the speed and simplicity of a scratchpad for quick thoughts, while adding a dedicated articles section for longer-form writing with formatting support.
+Scrawl started as a simple microblog — a single-file scratchpad for quick thoughts. Over time it evolved into a full personal publishing platform with articles, rich text editing, threaded comments, and social sharing — while keeping the speed and simplicity that made it useful in the first place.
 
 ---
 
@@ -39,6 +39,28 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - Unsaved changes protection (browser warns before navigating away)
 - Actions: permalink, copy text, copy link, share, edit, delete
 
+### Comments & Discussion
+
+- Threaded comments on articles (only articles, not posts)
+- Readers identify themselves with a "Discuss as" name — cached in browser localStorage indefinitely (no login required)
+- Nested replies with visual thread connectors (left border lines showing hierarchy)
+- Reply depth capped at 4 levels of indentation to preserve readability on mobile
+- Comment form always visible below articles — no extra clicks to start discussing
+- "Comments cannot be edited after posting" hint for readers
+- Moderation: all reader comments require owner approval before they become visible to other readers
+- Owner comments are auto-approved and appear immediately
+- Owner name is configurable and displays dynamically on all owner comments (past and future)
+- Inline approve/delete actions with feedback animations (slide-up on removal)
+- Delete uses the same 2-step confirm pattern as posts and articles ("delete" → "confirm?" → gone)
+- Deleting a parent comment removes all nested replies
+
+### Comments Management
+
+- Dedicated `/comments` page for the owner (accessible from the menu)
+- Shows only pending reader comments awaiting approval
+- Each comment links to its article for context
+- Approve and delete with inline feedback and animations
+
 ### Search
 
 - Full-text search (SQLite FTS5) across both posts and articles
@@ -52,7 +74,7 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - **post archive** — browse posts by year and month
 - **articles** — article list grouped by year
 - **search** — full-text search icon
-- **gear menu** — settings (title, footer, theme, RSS, help, contact, login/logout)
+- **menu** — hamburger icon with all options (title, name, footer, comments, theme, RSS, help, contact, login/logout)
 
 ### Contact Page
 
@@ -60,21 +82,33 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - Fields: Name (required), Email (optional), Subject (optional), Message (required)
 - "Message sent" notification on successful submission
 - Owner sees accumulated messages listed latest-first below the form
-- Owner can delete messages (same 2-step confirm pattern as posts/articles)
+- Owner can delete messages (same 2-step confirm pattern)
 - Non-owner users only see the contact form
-- Accessible from gear menu and mobile menu for all users
+- Accessible from menu for all users
 
 ### RSS Feeds
 
 - `/feed/posts` — latest 50 posts
 - `/feed/articles` — latest 50 published articles
 - Auto-discoverable via `<link>` tags in HTML head
-- Links in the gear menu
+- Links in the menu
+
+### Social Sharing & SEO
+
+- Open Graph meta tags on posts and articles (title, description, URL, type, published time, author)
+- Twitter Card meta tags (summary card — text-focused, no image)
+- `<meta name="description">` for search engines
+- `<link rel="canonical">` for authoritative URLs
+- `article:published_time` and `article:author` structured data
+- Site fully indexable (`index, follow` robots directive)
+- Description auto-generated from first 200 characters of content
+- Works with: Twitter/X, Facebook, LinkedIn, WhatsApp, Telegram, Slack, Discord, Reddit, Mastodon, iMessage, WordPress, Substack, Blogger, Medium, and any platform supporting Open Graph
 
 ### Customization
 
-- Editable site title (gear menu → edit title)
-- Editable footer/copyright text (gear menu → edit footer)
+- Editable site title (menu → edit title)
+- Editable owner display name (menu → edit name) — propagates to all comments
+- Editable footer/copyright text (menu → edit footer)
 - Light and dark themes (preference saved in browser)
 - Light theme by default
 
@@ -85,12 +119,12 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - bcrypt-hashed password (12 rounds, salted)
 - HMAC-signed session cookies (httpOnly, sameSite strict)
 - 7-day session persistence
-- Visitors can read all published content
+- Visitors can read all published content and comment on articles
 
 ### Help Page
 
 - Built-in help at `/help` explaining all features
-- Accessible from the gear menu and mobile menu
+- Accessible from the menu
 
 ### Progressive Web App
 
@@ -98,12 +132,13 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 - Service worker with cache-first for static assets
 - Network-first for HTML pages (always fresh content)
 
-### LLM Discoverability
+### Discoverability
 
 - Dynamic sitemap at `/sitemap.xml` (posts and articles)
 - JSON API at `/api/posts`
 - RSS feeds for both content types
 - `<link rel="alternate">` tags for machine-readable discovery
+- Open Graph and Twitter Card meta for rich link previews
 
 ---
 
@@ -124,18 +159,20 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 | `/` | Homepage with posts |
 | `/articles` | Articles list grouped by year |
 | `/articles/new` | Write new article (owner) |
-| `/articles/:id` | View article |
+| `/articles/:id` | View article with comments |
 | `/articles/:id/edit` | Edit article (owner) |
 | `/archive` | Post archive by year/month |
 | `/random` | Random post |
 | `/post/:id` | Single post permalink |
 | `/edit/:id` | Edit post (owner) |
+| `/comments` | Comment moderation (owner) |
 | `/help` | Help page |
 | `/contact` | Contact page (form + messages for owner) |
 | `/feed/posts` | RSS feed for posts |
 | `/feed/articles` | RSS feed for articles |
 | `/sitemap.xml` | XML sitemap |
 | `/api/posts` | JSON API for all posts |
+| `/api/comments` | Comment submission endpoint |
 | `/login` | Owner login |
 | `/setup` | First-time password setup |
 
@@ -163,6 +200,8 @@ Scrawl evolved from a microblog into a complete writing platform. It keeps the s
 | Write protection | Server-side middleware on all mutating routes |
 | XSS (posts) | HTML escaping on all user content |
 | XSS (articles) | HTML sanitization (only b, i, u, a, br, h2, h3, ol, ul, li, blockquote allowed) |
+| XSS (comments) | HTML escaping on all comment content |
+| Comment moderation | All reader comments require owner approval |
 
 ### Password Reset
 
@@ -176,10 +215,11 @@ All user data is stored in the `data/` directory (git-ignored):
 
 | File | Purpose |
 |------|---------|
-| `scrawl.db` | SQLite database (posts, articles, messages) |
+| `scrawl.db` | SQLite database (posts, articles, messages, comments) |
 | `owner.hash` | bcrypt password hash |
 | `session.secret` | HMAC signing key |
 | `blog-title.txt` | Custom site title |
+| `owner-name.txt` | Owner display name (for comments) |
 | `copyright.txt` | Footer/copyright text |
 
 ---
@@ -197,7 +237,56 @@ Available at `http://localhost:3000`. On first visit, you'll be redirected to `/
 
 ---
 
+## Evolution
+
+Scrawl has gone through three major phases:
+
+**v1.x — Microblog** (original)
+A bare-bones microblog. Single text field, post button, chronological feed. No titles, no formatting, no articles. Just quick thoughts published instantly.
+
+**v2.x — Writing Platform**
+Added long-form articles with a rich text editor, full-text search, RSS feeds, draft support, backdating, a contact page, and PWA capabilities. Renamed from "Microblog" to "Scrawl."
+
+**v3.0 — Blogging Platform**
+Added threaded reader comments with moderation, owner identity (configurable display name), social sharing with Open Graph/Twitter Cards, full SEO indexability, and a unified hamburger menu. Transformed from a personal writing tool into a complete self-hosted blogging platform where readers can engage through discussion.
+
+---
+
 ## Changelog
+
+### Version 3.0.0
+
+This is a major release that transforms Scrawl from a personal writing tool into a full blogging platform with reader engagement.
+
+#### Added
+
+- **Threaded comments** on articles — readers can discuss, reply to each other, and build conversation threads
+- **Comment moderation** — all reader comments require owner approval before becoming public
+- **Owner display name** — configurable via menu ("edit name"), shown on owner comments, propagates dynamically everywhere
+- **Comments management page** (`/comments`) — owner sees pending comments, can approve or delete with inline feedback
+- **Reply threading** with visual connectors (left border lines) capped at 4 levels of indentation
+- **Comment identity** — readers enter a "Discuss as" name, cached in localStorage indefinitely (no login needed, no expiry)
+- **"Cannot edit" warning** — readers see a hint that comments cannot be modified after posting
+- **Social sharing meta tags** — Open Graph, Twitter Cards, and SEO description on all posts and articles
+- **Full indexability** — removed `noindex/nofollow`, site is now fully crawlable by search engines and social platforms
+- **Canonical URLs** — `<link rel="canonical">` on all content pages
+- **Homepage OG tags** — sharing the homepage URL produces a proper card preview
+
+#### Changed
+
+- Desktop settings icon replaced with hamburger menu (three-line icon) — reflects that it's now a full menu, not just settings
+- Mobile menu updated with "comments" and "edit name" options for the owner
+- Comment form uses link-style actions ("post comment", "reply", "cancel") instead of buttons — buttons reserved for primary authoring actions
+- Comment delete uses the same 2-step "delete → confirm?" inline pattern as posts and articles (no browser popup)
+- Comment approve shows "approving..." feedback then slides the item away
+- Comment text renders slightly smaller than article body text (visual hierarchy — comments are secondary to the main content)
+- Input fields stay at 16px to prevent iOS Safari auto-zoom on focus
+- Article deletion now also cleans up all associated comments
+
+#### Database
+
+- New `comments` table with fields: id, article_id, parent_id, author, content, timestamp, approved, is_owner
+- Auto-migration adds `is_owner` column for existing databases
 
 ### Version 2.5.1
 

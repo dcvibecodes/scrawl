@@ -17,6 +17,7 @@ const HASH_FILE = path.join(DATA_DIR, 'owner.hash');
 const SECRET_FILE = path.join(DATA_DIR, 'session.secret');
 const BLOG_TITLE_FILE = path.join(DATA_DIR, 'blog-title.txt');
 const COPYRIGHT_FILE = path.join(DATA_DIR, 'copyright.txt');
+const OWNER_NAME_FILE = path.join(DATA_DIR, 'owner-name.txt');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_BLOG_TITLE = 'Scrawl';
@@ -58,6 +59,15 @@ function getCopyright() {
 
 function saveCopyright(text) {
     fs.writeFileSync(COPYRIGHT_FILE, text.trim(), 'utf8');
+}
+
+function getOwnerName() {
+    if (!fs.existsSync(OWNER_NAME_FILE)) return '';
+    return fs.readFileSync(OWNER_NAME_FILE, 'utf8').trim();
+}
+
+function saveOwnerName(name) {
+    fs.writeFileSync(OWNER_NAME_FILE, name.trim(), 'utf8');
 }
 
 function isAuthenticated(req) {
@@ -147,6 +157,27 @@ async function initDatabase() {
             timestamp INTEGER NOT NULL
         )
     `);
+
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS comments (
+            id TEXT PRIMARY KEY,
+            article_id TEXT NOT NULL,
+            parent_id TEXT,
+            author TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp INTEGER NOT NULL,
+            approved INTEGER NOT NULL DEFAULT 0,
+            is_owner INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+        )
+    `);
+
+    // Migrate: add is_owner column if missing (for existing databases)
+    try {
+        await db.exec(`ALTER TABLE comments ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
 
     await db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
@@ -519,16 +550,41 @@ const sharedStyles = `
     }
 `;
 
-const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright }) =>  {
+const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta }) =>  {
     const copyrightText = copyright !== undefined ? copyright : getCopyright();
+    // Build social/SEO meta tags
+    let metaTags = '';
+    if (meta) {
+        const ogTitle = escapeHtml(meta.title || title);
+        const ogDesc = escapeHtml(meta.description || '');
+        const ogUrl = escapeHtml(meta.url || '');
+        const ogSiteName = escapeHtml(blogTitle);
+        const ogType = meta.type || 'article';
+        const publishedTime = meta.publishedTime || '';
+        const author = meta.author || '';
+        metaTags = `
+    <meta name="description" content="${ogDesc}">
+    <meta property="og:title" content="${ogTitle}">
+    <meta property="og:description" content="${ogDesc}">
+    <meta property="og:url" content="${ogUrl}">
+    <meta property="og:site_name" content="${ogSiteName}">
+    <meta property="og:type" content="${ogType}">
+    <meta property="og:locale" content="en_US">
+    ${publishedTime ? `<meta property="article:published_time" content="${escapeHtml(publishedTime)}">` : ''}
+    ${author ? `<meta property="article:author" content="${escapeHtml(author)}">` : ''}
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="${ogTitle}">
+    <meta name="twitter:description" content="${ogDesc}">
+    <link rel="canonical" href="${ogUrl}">`;
+    }
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow">
-    <title>${title}</title>
+    <meta name="robots" content="index, follow">
+    <title>${title}</title>${metaTags}
     <link rel="manifest" href="/manifest.json">
     <link rel="alternate" type="application/json" href="/api/posts" title="All posts (JSON)">
     <link rel="alternate" type="application/rss+xml" href="/feed/posts" title="Posts RSS Feed">
@@ -582,16 +638,19 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             ${isOwner ? `
             <span class="gear-wrapper" style="margin:0;padding:0;">
                 <span class="header-separator">&middot;</span>
-                <button type="button" class="gear-btn" id="gearBtn" aria-label="Settings" style="margin-top:0;">
+                <button type="button" class="gear-btn" id="gearBtn" aria-label="Menu" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
                     <a href="#" id="editBlogTitle">edit title</a>
+                    <a href="#" id="editOwnerName">edit name</a>
                     <a href="#" id="editCopyright">edit footer</a>
                     <a href="#" id="themeToggle">dark</a>
+                    <a href="/comments">comments</a>
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
                     <a href="/help">help</a>
@@ -602,10 +661,11 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             ` : `
             <span class="gear-wrapper" style="margin:0;padding:0;">
                 <span class="header-separator">&middot;</span>
-                <button type="button" class="gear-btn" id="gearBtn" aria-label="Settings" style="margin-top:0;">
+                <button type="button" class="gear-btn" id="gearBtn" aria-label="Menu" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
                 <div class="gear-dropdown" id="gearDropdown">
@@ -638,7 +698,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         <a href="/archive">post archive</a>
         <a href="/articles">articles</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/logout">logout</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="/comments">comments</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/logout">logout</a>'
             : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/help">help</a><a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
@@ -973,6 +1033,44 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 .catch(function() { alert('Failed to save footer'); });
             });
         }
+
+        // Owner name edit
+        var editOwnerName = document.getElementById('editOwnerName');
+        var mobileEditOwnerName = document.getElementById('mobileEditOwnerName');
+        function doEditOwnerName() {
+            fetch('/api/owner-name')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var currentName = data.name || '';
+                var newName = prompt('Owner display name for comments:', currentName);
+                if (newName === null) return;
+                if (!newName.trim()) { alert('Name cannot be empty.'); return; }
+                fetch('/api/owner-name', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.success) throw new Error();
+                })
+                .catch(function() { alert('Failed to save name'); });
+            });
+        }
+        if (editOwnerName) {
+            editOwnerName.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (gearDropdown) gearDropdown.classList.remove('open');
+                doEditOwnerName();
+            });
+        }
+        if (mobileEditOwnerName) {
+            mobileEditOwnerName.addEventListener('click', function(e) {
+                e.preventDefault();
+                mobileMenu.classList.remove('open');
+                doEditOwnerName();
+            });
+        }
     })();
     </script>
 </body>
@@ -1161,6 +1259,19 @@ app.post('/api/copyright', requireOwner, (req, res) => {
     res.json({ success: true, text });
 });
 
+app.post('/api/owner-name', requireOwner, (req, res) => {
+    const name = String(req.body.name || '').trim();
+    if (!name) {
+        return res.status(400).json({ success: false, error: 'Name is required.' });
+    }
+    saveOwnerName(name);
+    res.json({ success: true, name });
+});
+
+app.get('/api/owner-name', requireOwner, (req, res) => {
+    res.json({ success: true, name: getOwnerName() });
+});
+
 // --- Main Routes ---
 
 app.get('/', async (req, res) => {
@@ -1305,7 +1416,13 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
             bodyContent,
             isOwner: req.isOwner,
             blogTitle: getBlogTitle(),
-            searchQuery
+            searchQuery,
+            meta: {
+                title: getBlogTitle(),
+                description: (getOwnerName() ? getOwnerName() + ' — ' : '') + 'A personal publishing space for quick posts and long-form articles.',
+                url: `${req.protocol}://${req.get('host')}/`,
+                type: 'website'
+            }
         }));
     } catch (err) {
         console.error(err);
@@ -1356,7 +1473,15 @@ app.get('/post/:id', async (req, res) => {
             title: 'Post',
             bodyContent,
             isOwner: req.isOwner,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            meta: {
+                title: getBlogTitle(),
+                description: entry.content.substring(0, 200).trim(),
+                url: `${req.protocol}://${req.get('host')}/post/${entry.id}`,
+                type: 'article',
+                publishedTime: new Date(entry.timestamp).toISOString(),
+                author: getOwnerName() || getBlogTitle()
+            }
         }));
     } catch (err) {
         res.status(500).send('Error fetching post.');
@@ -2147,6 +2272,54 @@ const articleStyles = `
     [data-theme="dark"] .share-btn { background: none !important; color: var(--text-muted); }
 `;
 
+// Comment styles
+const commentStyles = `
+    .comments-section { border-top: 1px solid var(--separator-color); padding-top: 20px; }
+    .comments-thread { margin-top: 20px; }
+    .comment-item { position: relative; margin-bottom: 16px; }
+    .comment-item.comment-pending .comment-bubble { opacity: 0.5; }
+    .comment-connector { position: absolute; left: -16px; top: 0; bottom: 0; width: 2px; background: var(--separator-color); border-radius: 1px; }
+    .comment-bubble { padding: 10px 0; }
+    .comment-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .comment-author { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .comment-date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; }
+    .comment-pending-badge { font-size: 0.7rem; color: var(--text-muted); border: 1px solid var(--separator-color); border-radius: 3px; padding: 1px 5px; }
+    .comment-body { font-size: 0.9rem; line-height: 1.5; color: var(--text-main); white-space: pre-wrap; margin-bottom: 6px; }
+    .comment-actions { display: flex; gap: 15px; }
+    .comment-reply-btn, .comment-approve-btn, .comment-delete-btn, .comment-cancel-btn { background: none !important; border: none; padding: 0; margin: 0; font-size: 0.85rem; cursor: pointer; color: var(--text-muted); transition: color 0.2s ease; font-weight: normal; text-decoration: none; }
+    .comment-reply-btn:hover, .comment-approve-btn:hover { color: var(--text-main); }
+    .comment-delete-btn { color: #d96b6b; }
+    .comment-delete-btn:hover { color: #ff7a7a; }
+    .comment-cancel-btn:hover { color: var(--text-main); }
+    [data-theme="dark"] .comment-reply-btn, [data-theme="dark"] .comment-approve-btn, [data-theme="dark"] .comment-delete-btn, [data-theme="dark"] .comment-cancel-btn { background: none !important; }
+    .comment-form-wrapper { margin-bottom: 20px; }
+    .comment-form-wrapper.reply-form { margin-bottom: 0; padding-left: 16px; border-left: 2px solid var(--separator-color); margin-top: 8px; }
+    .comment-form-row { margin-bottom: 8px; }
+    .comment-author-input { width: 100%; max-width: 200px; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 16px; line-height: 1.2; outline: none; height: auto; min-height: 0; }
+    .comment-author-input::placeholder { color: var(--text-muted); opacity: 1; font-family: inherit; font-size: 16px; font-weight: normal; line-height: 1.2; }
+    .comment-textarea { width: 100%; padding: 12px 0; background: var(--bg-body); color: var(--text-main); border: none; border-bottom: 1px solid var(--separator-color); font-family: inherit; font-size: 16px; line-height: 1.5; outline: none; resize: none; overflow-y: hidden; min-height: 0; height: auto; display: block; }
+    .comment-textarea::placeholder { color: var(--text-muted); opacity: 1; font-family: inherit; font-size: 16px; font-weight: normal; line-height: 1.5; }
+    .comment-action-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; cursor: pointer; transition: color 0.2s ease; }
+    .comment-action-link:hover { color: var(--text-main); }
+    .comment-cancel-link { color: var(--text-muted); }
+    .comment-cancel-link:hover { color: var(--text-main); }
+    .comment-status { font-size: 0.85rem; color: var(--text-muted); }
+    /* Owner comments management page */
+    .comment-mgmt-item { padding: 12px 0; border-bottom: 1px solid var(--separator-color); }
+    .comment-mgmt-item:last-child { border-bottom: none; }
+    .comment-mgmt-item.pending { opacity: 0.6; }
+    .comment-mgmt-meta { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+    .comment-mgmt-meta a { color: var(--text-muted); text-decoration: underline; }
+    .comment-mgmt-meta a:hover { color: var(--text-main); }
+    .comment-mgmt-body { font-size: 0.9rem; line-height: 1.5; margin-bottom: 6px; white-space: pre-wrap; }
+    .comment-mgmt-actions { display: flex; gap: 15px; }
+    .comment-mgmt-actions a { text-decoration: none; font-size: 0.85rem; cursor: pointer; }
+    .comment-mgmt-actions .approve-btn { color: var(--text-muted); transition: color 0.2s ease; }
+    .comment-mgmt-actions .approve-btn:hover { color: var(--text-main); }
+    .comment-mgmt-actions .delete-btn { color: #d96b6b; transition: color 0.2s ease; }
+    .comment-mgmt-actions .delete-btn:hover { color: #ff7a7a; }
+`;
+
 // List articles
 app.get('/articles', async (req, res) => {
     try {
@@ -2563,6 +2736,57 @@ app.get('/articles/:id', async (req, res) => {
             return res.status(404).send('Article not found.');
         }
 
+        // Fetch comments for this article
+        let comments;
+        if (req.isOwner) {
+            comments = await db.all('SELECT * FROM comments WHERE article_id = ? ORDER BY timestamp ASC', [article.id]);
+        } else {
+            comments = await db.all('SELECT * FROM comments WHERE article_id = ? AND approved = 1 ORDER BY timestamp ASC', [article.id]);
+        }
+
+        const ownerName = getOwnerName();
+
+        // Build threaded comments HTML
+        function buildCommentTree(comments, parentId = null, depth = 0) {
+            const children = comments.filter(c => c.parent_id === parentId);
+            if (children.length === 0) return '';
+            let html = '';
+            for (const comment of children) {
+                const isApproved = comment.approved === 1;
+                const fadedClass = !isApproved ? ' comment-pending' : '';
+                const approveBtn = (req.isOwner && !isApproved) ? `<a href="#" class="comment-approve-btn" onclick="approveComment(this, '${comment.id}');return false;">approve</a>` : '';
+                const deleteBtn = req.isOwner ? `<a href="#" class="comment-delete-btn" onclick="deleteComment(this, '${comment.id}');return false;">delete</a>` : '';
+                const pendingBadge = (!isApproved && req.isOwner) ? '<span class="comment-pending-badge">pending</span>' : '';
+                const replyBtn = `<a href="#" class="comment-reply-btn" onclick="showReplyForm('${comment.id}');return false;">reply</a>`;
+                const connector = depth > 0 ? '<div class="comment-connector"></div>' : '';
+                // Use current owner name for owner comments
+                const displayName = comment.is_owner ? (ownerName || comment.author) : comment.author;
+                html += `
+                    <div class="comment-item${fadedClass}" data-id="${comment.id}" data-parent="${comment.parent_id || ''}" style="margin-left:${Math.min(depth, 4) * 24}px;">
+                        ${connector}
+                        <div class="comment-bubble">
+                            <div class="comment-header">
+                                <span class="comment-author">${escapeHtml(displayName)}</span>
+                                ${pendingBadge}
+                                <span class="comment-date">${formatDate(comment.timestamp)}</span>
+                            </div>
+                            <div class="comment-body">${escapeHtml(comment.content)}</div>
+                            <div class="comment-actions">
+                                ${replyBtn}
+                                ${approveBtn}
+                                ${deleteBtn}
+                            </div>
+                        </div>
+                        <div class="reply-form-container" id="reply-form-${comment.id}" style="display:none;"></div>
+                    </div>
+                `;
+                html += buildCommentTree(comments, comment.id, depth + 1);
+            }
+            return html;
+        }
+
+        const commentsHtml = buildCommentTree(comments);
+
         const dateStr = formatDate(article.timestamp);
         const fullDate = new Date(article.timestamp).toLocaleString();
         const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
@@ -2575,7 +2799,7 @@ app.get('/articles/:id', async (req, res) => {
         ` : '';
 
         const bodyContent = `
-            <style>${articleStyles}</style>
+            <style>${articleStyles}${commentStyles}</style>
             <article>
                 <h1 class="article-title">${escapeHtml(article.title)} ${draftBadge}</h1>
                 <div class="article-meta" title="${fullDate}">${dateStr}</div>
@@ -2588,8 +2812,235 @@ app.get('/articles/:id', async (req, res) => {
                     ${ownerActions}
                 </div>
             </article>
+
+            <!-- Comments Section -->
+            <div class="comments-section" style="margin-top:40px;">
+                <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Discussion</div>
+                <div class="comment-form-wrapper" id="mainCommentForm">
+                    <div class="comment-form-row">
+                        <input type="text" id="commentAuthor" placeholder="Discuss as" class="comment-author-input" autocomplete="off" ${req.isOwner && ownerName ? `value="${escapeHtml(ownerName)}" readonly style="opacity:0.6;cursor:default;"` : ''}>
+                    </div>
+                    <div class="comment-form-row">
+                        <textarea id="commentContent" placeholder="Write a comment..." class="comment-textarea"></textarea>
+                    </div>
+                    <div class="char-counter" id="comment-char-counter">0 words &middot; 0 characters</div>
+                    ${req.isOwner ? '' : '<div class="comment-hint" style="font-size:0.7rem;color:var(--text-muted);opacity:0.5;margin-bottom:10px;">Comments cannot be edited after posting.</div>'}
+                    <div class="comment-form-row" style="display:flex;gap:15px;align-items:center;">
+                        <a href="#" class="comment-action-link" id="mainSubmitBtn" onclick="submitComment(null);return false;">post comment</a>
+                        <span class="comment-status" id="commentStatus"></span>
+                    </div>
+                </div>
+                <div class="comments-thread" id="commentsThread">
+                    ${commentsHtml}
+                </div>
+            </div>
+
             <p style="margin-top:30px;"><a href="/articles" class="back-link">&larr; back to articles</a></p>
             <script>
+            // Load saved discuss-as name from localStorage and auto-resize comment textarea
+            (function() {
+                ${req.isOwner ? '' : `var saved = localStorage.getItem('scrawl_discuss_as');
+                if (saved) {
+                    var el = document.getElementById('commentAuthor');
+                    if (el && !el.readOnly) el.value = saved;
+                }`}
+                // Attach auto-resize to comment textarea (same behavior as post textarea)
+                var commentBox = document.getElementById('commentContent');
+                if (commentBox) {
+                    function resizeComment() {
+                        var s = window.scrollY;
+                        commentBox.style.height = 'auto';
+                        commentBox.style.height = commentBox.scrollHeight + 'px';
+                        window.scrollTo(0, s);
+                    }
+                    commentBox.addEventListener('input', resizeComment);
+
+                    // Word and character counter
+                    var commentCounter = document.getElementById('comment-char-counter');
+                    function updateCommentCount() {
+                        var text = commentBox.value;
+                        var chars = text.length;
+                        var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                        commentCounter.textContent = words + ' words \\u00b7 ' + chars + '/2000 characters';
+                    }
+                    commentBox.addEventListener('input', updateCommentCount);
+                    updateCommentCount();
+                }
+            })();
+
+            function showReplyForm(parentId) {
+                // Hide main comment form
+                document.getElementById('mainCommentForm').style.display = 'none';
+
+                // Remove any existing open reply forms
+                document.querySelectorAll('.reply-form-container').forEach(function(el) {
+                    el.style.display = 'none';
+                    el.innerHTML = '';
+                });
+                var container = document.getElementById('reply-form-' + parentId);
+                var saved = ${req.isOwner && ownerName ? JSON.stringify(ownerName) : "localStorage.getItem('scrawl_discuss_as') || ''"};
+                var readonlyAttr = ${req.isOwner && ownerName ? "'readonly style=\"opacity:0.6;cursor:default;\"'" : "''"};
+                var hint = ${req.isOwner ? "''" : "'<div style=\"font-size:0.7rem;color:var(--text-muted);opacity:0.5;margin-bottom:10px;\">Comments cannot be edited after posting.</div>'"};
+                container.innerHTML = '<div class="comment-form-wrapper reply-form">' +
+                    '<div class="comment-form-row"><input type="text" class="comment-author-input reply-author" placeholder="Discuss as" value="' + escapeAttr(saved) + '" ' + readonlyAttr + ' autocomplete="off"></div>' +
+                    '<div class="comment-form-row"><textarea class="comment-textarea reply-content" placeholder="Write a reply..."></textarea></div>' +
+                    '<div class="char-counter reply-char-counter">0 words \\u00b7 0/2000 characters</div>' +
+                    hint +
+                    '<div class="comment-form-row" style="display:flex;gap:15px;align-items:center;">' +
+                    '<a href="#" class="comment-action-link reply-submit-btn" onclick="submitComment(' + "'" + parentId + "'" + ');return false;">reply</a>' +
+                    '<a href="#" class="comment-action-link comment-cancel-link" onclick="cancelReply(' + "'" + parentId + "'" + ');return false;">cancel</a>' +
+                    '<span class="comment-status reply-status"></span></div></div>';
+                container.style.display = 'block';
+                // Attach counter to reply textarea
+                var replyBox = container.querySelector('.reply-content');
+                var replyCounter = container.querySelector('.reply-char-counter');
+                function updateReplyCount() {
+                    var text = replyBox.value;
+                    var chars = text.length;
+                    var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                    replyCounter.textContent = words + ' words \\u00b7 ' + chars + '/2000 characters';
+                }
+                replyBox.addEventListener('input', updateReplyCount);
+                replyBox.focus();
+            }
+
+            function cancelReply(parentId) {
+                var container = document.getElementById('reply-form-' + parentId);
+                container.style.display = 'none';
+                container.innerHTML = '';
+                // Show main comment form again
+                document.getElementById('mainCommentForm').style.display = '';
+            }
+
+            function escapeAttr(str) {
+                return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            }
+
+            function submitComment(parentId) {
+                var author, content, statusEl, btn;
+                if (parentId) {
+                    var container = document.getElementById('reply-form-' + parentId);
+                    author = container.querySelector('.reply-author').value.trim();
+                    content = container.querySelector('.reply-content').value.trim();
+                    statusEl = container.querySelector('.reply-status');
+                    btn = container.querySelector('.reply-submit-btn');
+                } else {
+                    author = document.getElementById('commentAuthor').value.trim();
+                    content = document.getElementById('commentContent').value.trim();
+                    statusEl = document.getElementById('commentStatus');
+                    btn = document.getElementById('mainSubmitBtn');
+                }
+
+                if (!author) { statusEl.textContent = 'Please enter your name.'; statusEl.style.color = '#d96b6b'; return; }
+                if (!content) { statusEl.textContent = 'Please write a comment.'; statusEl.style.color = '#d96b6b'; return; }
+
+                // Save name to localStorage (no expiry) — only for non-owner
+                ${req.isOwner ? '' : "localStorage.setItem('scrawl_discuss_as', author);"}
+
+                // Show posting state
+                var originalText = btn.textContent;
+                btn.textContent = 'posting...';
+                statusEl.textContent = '';
+
+                fetch('/api/comments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        article_id: '${article.id}',
+                        parent_id: parentId || null,
+                        author: author,
+                        content: content
+                    })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        ${req.isOwner ? `
+                        // Owner: reload immediately to show the comment
+                        window.location.reload();
+                        ` : `
+                        statusEl.textContent = 'Your comment will be reviewed by the owner before publishing.';
+                        statusEl.style.color = 'var(--text-muted)';
+                        btn.textContent = originalText;
+                        if (parentId) {
+                            var container = document.getElementById('reply-form-' + parentId);
+                            container.querySelector('.reply-content').value = '';
+                            var rc = container.querySelector('.reply-char-counter');
+                            if (rc) rc.textContent = '0 words \\u00b7 0/2000 characters';
+                        } else {
+                            document.getElementById('commentContent').value = '';
+                            var cc = document.getElementById('comment-char-counter');
+                            if (cc) cc.textContent = '0 words \\u00b7 0/2000 characters';
+                        }
+                        `}
+                    } else {
+                        statusEl.textContent = data.error || 'Failed to post comment.';
+                        statusEl.style.color = '#d96b6b';
+                        btn.textContent = originalText;
+                    }
+                })
+                .catch(function() {
+                    statusEl.textContent = 'Failed to post comment.';
+                    statusEl.style.color = '#d96b6b';
+                    btn.textContent = originalText;
+                });
+            }
+
+            ${req.isOwner ? `
+            function approveComment(el, id) {
+                el.textContent = 'approving...';
+                fetch('/api/comments/' + id + '/approve', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        var item = el.closest('.comment-item');
+                        item.classList.remove('comment-pending');
+                        el.remove();
+                    }
+                })
+                .catch(function() { el.textContent = 'approve'; });
+            }
+            function deleteComment(el, id) {
+                if (el.dataset.confirming === 'true') {
+                    el.textContent = 'deleting...';
+                    fetch('/api/comments/' + id, { method: 'DELETE' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            // Find all descendants recursively using data-parent
+                            function findDescendants(parentId) {
+                                var ids = [parentId];
+                                document.querySelectorAll('.comment-item[data-parent="' + parentId + '"]').forEach(function(child) {
+                                    ids = ids.concat(findDescendants(child.dataset.id));
+                                });
+                                return ids;
+                            }
+                            var allIds = findDescendants(id);
+                            allIds.forEach(function(cid) {
+                                var item = document.querySelector('.comment-item[data-id="' + cid + '"]');
+                                if (item) {
+                                    item.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
+                                    item.style.opacity = '0';
+                                    setTimeout(function() { item.style.maxHeight = '0'; item.style.marginBottom = '0'; item.style.paddingBottom = '0'; item.style.overflow = 'hidden'; }, 50);
+                                    setTimeout(function() { item.remove(); }, 250);
+                                }
+                            });
+                        }
+                    })
+                    .catch(function() { el.textContent = 'delete'; el.dataset.confirming = ''; });
+                    return;
+                }
+                el.textContent = 'confirm?';
+                el.dataset.confirming = 'true';
+                setTimeout(function() {
+                    if (el.dataset.confirming === 'true') {
+                        el.textContent = 'delete';
+                        el.dataset.confirming = '';
+                    }
+                }, 3000);
+            }
+            ` : ''}
+
             function copyArticleText(el) {
                 var body = document.querySelector('.article-body');
                 var text = body ? body.innerText : '';
@@ -2627,7 +3078,15 @@ app.get('/articles/:id', async (req, res) => {
             title: article.title,
             bodyContent,
             isOwner: req.isOwner,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            meta: {
+                title: article.title,
+                description: stripHtml(article.content).substring(0, 200).trim(),
+                url: `${req.protocol}://${req.get('host')}/articles/${article.id}`,
+                type: 'article',
+                publishedTime: new Date(article.timestamp).toISOString(),
+                author: getOwnerName() || getBlogTitle()
+            }
         }));
     } catch (err) {
         console.error(err);
@@ -2968,6 +3427,7 @@ app.post('/articles/:id/delete', requireOwner, async (req, res) => {
     try {
         await db.run('DELETE FROM articles WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM articles_fts WHERE id = ?', [req.params.id]);
+        await db.run('DELETE FROM comments WHERE article_id = ?', [req.params.id]);
 
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
             return res.json({ success: true });
@@ -2979,6 +3439,182 @@ app.post('/articles/:id/delete', requireOwner, async (req, res) => {
             return res.status(500).json({ success: false });
         }
         res.status(500).send('Error deleting article.');
+    }
+});
+
+// --- Comments API Routes ---
+
+// Submit a comment (public)
+app.post('/api/comments', async (req, res) => {
+    try {
+        const { article_id, parent_id, author, content } = req.body;
+        if (!article_id || !author || !content) {
+            return res.status(400).json({ success: false, error: 'Article ID, author, and content are required.' });
+        }
+        if (content.length > 2000) {
+            return res.status(400).json({ success: false, error: 'Comment must be 2000 characters or fewer.' });
+        }
+
+        // Verify article exists and is published
+        const article = await db.get('SELECT id, status FROM articles WHERE id = ?', [article_id]);
+        if (!article || (article.status !== 'published' && !req.isOwner)) {
+            return res.status(404).json({ success: false, error: 'Article not found.' });
+        }
+
+        // If parent_id is specified, verify it exists
+        if (parent_id) {
+            const parent = await db.get('SELECT id FROM comments WHERE id = ?', [parent_id]);
+            if (!parent) {
+                return res.status(400).json({ success: false, error: 'Parent comment not found.' });
+            }
+        }
+
+        const id = generateId();
+        const timestamp = Date.now();
+        // Owner's comments are auto-approved and flagged
+        const approved = req.isOwner ? 1 : 0;
+        const isOwnerComment = req.isOwner ? 1 : 0;
+        // Use the stored owner name for owner comments
+        const authorName = req.isOwner ? (getOwnerName() || author.trim()) : author.trim();
+
+        await db.run(
+            'INSERT INTO comments (id, article_id, parent_id, author, content, timestamp, approved, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, article_id, parent_id || null, authorName, content.trim(), timestamp, approved, isOwnerComment]
+        );
+
+        res.json({ success: true, id, isOwner: req.isOwner });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Failed to post comment.' });
+    }
+});
+
+// Approve a comment (owner only)
+app.post('/api/comments/:id/approve', requireOwner, async (req, res) => {
+    try {
+        await db.run('UPDATE comments SET approved = 1 WHERE id = ?', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Failed to approve comment.' });
+    }
+});
+
+// Delete a comment (owner only)
+app.delete('/api/comments/:id', requireOwner, async (req, res) => {
+    try {
+        // Recursively find all descendant comment IDs
+        async function getDescendants(parentId) {
+            const children = await db.all('SELECT id FROM comments WHERE parent_id = ?', [parentId]);
+            let ids = [parentId];
+            for (const child of children) {
+                const childIds = await getDescendants(child.id);
+                ids = ids.concat(childIds);
+            }
+            return ids;
+        }
+        const allIds = await getDescendants(req.params.id);
+        const placeholders = allIds.map(() => '?').join(',');
+        await db.run(`DELETE FROM comments WHERE id IN (${placeholders})`, allIds);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: 'Failed to delete comment.' });
+    }
+});
+
+// Owner comments management page
+app.get('/comments', requireOwner, async (req, res) => {
+    try {
+        const comments = await db.all(`
+            SELECT c.*, a.title as article_title
+            FROM comments c
+            LEFT JOIN articles a ON c.article_id = a.id
+            WHERE c.is_owner = 0 AND c.approved = 0
+            ORDER BY c.timestamp DESC
+        `);
+
+        const ownerName = getOwnerName();
+        let commentsListHtml = '';
+        if (comments.length === 0) {
+            commentsListHtml = '<p class="no-entries">No comments pending approval.</p>';
+        } else {
+            for (const comment of comments) {
+                commentsListHtml += `
+                    <div class="comment-mgmt-item" data-id="${comment.id}">
+                        <div class="comment-mgmt-meta">
+                            <strong>${escapeHtml(comment.author)}</strong> on <a href="/articles/${comment.article_id}">${escapeHtml(comment.article_title || 'Unknown article')}</a> &middot; ${formatDate(comment.timestamp)}
+                        </div>
+                        <div class="comment-mgmt-body">${escapeHtml(comment.content)}</div>
+                        <div class="comment-mgmt-actions">
+                            <a href="#" class="approve-btn" onclick="mgmtApprove(this, '${comment.id}');return false;">approve</a>
+                            <a href="#" class="delete-btn" onclick="mgmtDelete(this, '${comment.id}');return false;">delete</a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const bodyContent = `
+            <style>${commentStyles}</style>
+            <h2 style="font-size:1rem;font-weight:normal;color:var(--text-muted);margin-bottom:20px;">Comments</h2>
+            <div class="comments-management-list">
+                ${commentsListHtml}
+            </div>
+            <script>
+            function slideUp(el) {
+                el.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
+                el.style.opacity = '0';
+                setTimeout(function() { el.style.maxHeight = '0'; el.style.marginBottom = '0'; el.style.paddingBottom = '0'; el.style.paddingTop = '0'; el.style.overflow = 'hidden'; }, 50);
+                setTimeout(function() { el.remove(); }, 250);
+            }
+            function mgmtApprove(link, id) {
+                link.textContent = 'approving...';
+                fetch('/api/comments/' + id + '/approve', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        var item = link.closest('.comment-mgmt-item');
+                        slideUp(item);
+                    }
+                })
+                .catch(function() { link.textContent = 'approve'; });
+            }
+            function mgmtDelete(link, id) {
+                if (link.dataset.confirming === 'true') {
+                    link.textContent = 'deleting...';
+                    fetch('/api/comments/' + id, { method: 'DELETE' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            var item = link.closest('.comment-mgmt-item');
+                            slideUp(item);
+                        }
+                    })
+                    .catch(function() { link.textContent = 'delete'; link.dataset.confirming = ''; });
+                    return;
+                }
+                link.textContent = 'confirm?';
+                link.dataset.confirming = 'true';
+                setTimeout(function() {
+                    if (link.dataset.confirming === 'true') {
+                        link.textContent = 'delete';
+                        link.dataset.confirming = '';
+                    }
+                }, 3000);
+            }
+            </script>
+        `;
+
+        res.send(layoutTemplate({
+            title: 'Comments',
+            bodyContent,
+            isOwner: true,
+            blogTitle: getBlogTitle()
+        }));
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error loading comments.');
     }
 });
 
