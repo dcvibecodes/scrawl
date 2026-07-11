@@ -2414,6 +2414,8 @@ app.get('/articles', async (req, res) => {
             title: 'Articles',
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -2729,6 +2731,8 @@ app.get('/articles/new', requireOwner, (req, res) => {
         title: 'New Article',
         bodyContent,
         isOwner: true,
+        pendingComments: req.pendingComments || 0,
+        pendingMessages: req.pendingMessages || 0,
         blogTitle: getBlogTitle()
     }));
 });
@@ -3116,6 +3120,8 @@ app.get('/articles/:id', async (req, res) => {
             title: article.title,
             bodyContent,
             isOwner: req.isOwner,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle(),
             meta: {
                 title: article.title,
@@ -3417,6 +3423,8 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
             title: 'Edit Article',
             bodyContent,
             isOwner: true,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
@@ -3648,6 +3656,8 @@ app.get('/comments', requireOwner, async (req, res) => {
             title: 'Comments',
             bodyContent,
             isOwner: true,
+            pendingComments: req.pendingComments || 0,
+            pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle()
         }));
     } catch (err) {
