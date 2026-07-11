@@ -2303,8 +2303,11 @@ const commentStyles = `
     .comment-textarea::placeholder { color: var(--text-muted); opacity: 1; font-family: inherit; font-size: 16px; font-weight: normal; line-height: 1.5; }
     .comment-action-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; cursor: pointer; transition: color 0.2s ease; }
     .comment-action-link:hover { color: var(--text-main); }
-    .comment-cancel-link { color: var(--text-muted); }
+    .comment-cancel-link { color: var(--text-muted); font-size: 0.85rem; }
     .comment-cancel-link:hover { color: var(--text-main); }
+    .comment-submit-btn { background: #000000; color: #ffffff; border: none; cursor: pointer; font-weight: bold; text-decoration: none; display: inline-block; transition: opacity 0.2s; padding: 4px 12px; border-radius: 14px; font-size: 0.78rem; line-height: 1.4; }
+    .comment-submit-btn:hover { opacity: 0.8; }
+    [data-theme="dark"] .comment-submit-btn { background: #ffffff; color: #000000; }
     .comment-status { font-size: 0.85rem; color: var(--text-muted); }
     /* Owner comments management page */
     .comment-mgmt-item { padding: 12px 0; border-bottom: 1px solid var(--separator-color); }
@@ -2817,7 +2820,7 @@ app.get('/articles/:id', async (req, res) => {
 
             <!-- Comments Section -->
             <div class="comments-section" style="margin-top:40px;">
-                <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:16px;">Discussion</div>
+                <div style="font-size:1.01rem;color:var(--text-muted);margin-bottom:16px;">Discussion</div>
                 <div class="comment-form-wrapper" id="mainCommentForm">
                     <div class="comment-form-row">
                         <input type="text" id="commentAuthor" placeholder="Discuss as" class="comment-author-input" autocomplete="off" ${req.isOwner && ownerName ? `value="${escapeHtml(ownerName)}" readonly style="opacity:0.6;cursor:default;"` : ''}>
@@ -2827,8 +2830,8 @@ app.get('/articles/:id', async (req, res) => {
                     </div>
                     <div class="char-counter" id="comment-char-counter">0 words &middot; 0 characters</div>
                     ${req.isOwner ? '' : '<div class="comment-hint" style="font-size:0.7rem;color:var(--text-muted);opacity:0.5;margin-bottom:10px;">Comments cannot be edited after posting.</div>'}
-                    <div class="comment-form-row" style="display:flex;gap:15px;align-items:center;">
-                        <a href="#" class="comment-action-link" id="mainSubmitBtn" onclick="submitComment(null);return false;">post comment</a>
+                    <div class="comment-form-row" style="display:flex;gap:15px;align-items:baseline;">
+                        <button type="button" class="comment-submit-btn" id="mainSubmitBtn" onclick="submitComment(null)">Post</button>
                         <span class="comment-status" id="commentStatus"></span>
                     </div>
                 </div>
@@ -2888,8 +2891,8 @@ app.get('/articles/:id', async (req, res) => {
                     '<div class="comment-form-row"><textarea class="comment-textarea reply-content" placeholder="Write a reply..."></textarea></div>' +
                     '<div class="char-counter reply-char-counter">0 words \\u00b7 0/2000 characters</div>' +
                     hint +
-                    '<div class="comment-form-row" style="display:flex;gap:15px;align-items:center;">' +
-                    '<a href="#" class="comment-action-link reply-submit-btn" onclick="submitComment(' + "'" + parentId + "'" + ');return false;">reply</a>' +
+                    '<div class="comment-form-row" style="display:flex;gap:15px;align-items:baseline;">' +
+                    '<button type="button" class="comment-submit-btn reply-submit-btn" onclick="submitComment(' + "'" + parentId + "'" + ')">Post</button>' +
                     '<a href="#" class="comment-action-link comment-cancel-link" onclick="cancelReply(' + "'" + parentId + "'" + ');return false;">cancel</a>' +
                     '<span class="comment-status reply-status"></span></div></div>';
                 container.style.display = 'block';
@@ -2933,8 +2936,8 @@ app.get('/articles/:id', async (req, res) => {
                     btn = document.getElementById('mainSubmitBtn');
                 }
 
-                if (!author) { statusEl.textContent = 'Please enter your name.'; statusEl.style.color = '#d96b6b'; return; }
-                if (!content) { statusEl.textContent = 'Please write a comment.'; statusEl.style.color = '#d96b6b'; return; }
+                if (!author) { statusEl.textContent = 'Please enter your name.'; statusEl.style.color = '#d96b6b'; var s=statusEl;setTimeout(function(){s.textContent='';},2000); return; }
+                if (!content) { statusEl.textContent = 'Please write a comment.'; statusEl.style.color = '#d96b6b'; var s=statusEl;setTimeout(function(){s.textContent='';},2000); return; }
 
                 // Save name to localStorage (no expiry) — only for non-owner
                 ${req.isOwner ? '' : "localStorage.setItem('scrawl_discuss_as', author);"}
