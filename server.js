@@ -2302,7 +2302,7 @@ app.get('/articles', async (req, res) => {
         let articles;
         if (filter === 'drafts') {
             articles = await db.all("SELECT * FROM articles WHERE status = 'draft' ORDER BY timestamp DESC");
-        } else if (filter === 'published' && !req.isOwner) {
+        } else if (filter === 'published') {
             articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
         } else {
             articles = await db.all('SELECT * FROM articles ORDER BY timestamp DESC');
@@ -2358,6 +2358,8 @@ app.get('/articles', async (req, res) => {
         const filterBar = req.isOwner ? `
             <div style="margin-bottom:20px;font-size:0.85rem;">
                 <a href="/articles" class="article-filter-link${filter === 'all' ? ' active' : ''}">all</a>
+                <span class="article-list-separator">&middot;</span>
+                <a href="/articles?filter=published" class="article-filter-link${filter === 'published' ? ' active' : ''}">published</a>
                 <span class="article-list-separator">&middot;</span>
                 <a href="/articles?filter=drafts" class="article-filter-link${filter === 'drafts' ? ' active' : ''}">drafts</a>
             </div>
