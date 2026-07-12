@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.1.0**
+**Version 3.2.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -29,11 +29,17 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - Dedicated `/articles` section, listed by year
 - Rich text editor toolbar:
   - **Bold**, *Italic*, Underline
+  - ~~Strikethrough~~
+  - `Inline code`
   - Hyperlinks
   - H2 and H3 headings
   - Numbered and bullet lists
   - Blockquotes
+  - Horizontal rule (separator line)
 - Draft support — save privately, publish when ready
+- Unpublish — convert a published article back to draft with one click
+- Drafts filter — owner can filter the articles list to show only drafts
+- Inline article management — edit, delete, and unpublish actions appear directly on the articles listing page
 - Backdating — set a custom date for imported articles
 - Web Share API for native device sharing
 - Unsaved changes protection (browser warns before navigating away)
@@ -197,7 +203,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | Cookie flags | httpOnly, sameSite strict |
 | Write protection | Server-side middleware on all mutating routes |
 | XSS (posts) | HTML escaping on all user content |
-| XSS (articles) | HTML sanitization (only b, i, u, a, br, h2, h3, ol, ul, li, blockquote allowed) |
+| XSS (articles) | HTML sanitization (only b, i, u, s, strike, code, a, br, hr, h2, h3, ol, ul, li, blockquote allowed) |
 | XSS (comments) | HTML escaping on all comment content |
 | Comment moderation | All reader comments require owner approval |
 
@@ -251,6 +257,29 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.2.0
+
+#### Added
+
+- **Inline article management** — edit, delete, and unpublish actions appear directly next to article names on the articles listing page (owner only), with a subtle dot separator between the title and actions
+- **Unpublish action** — convert a published article back to draft status with a single click; uses the same 2-step confirm pattern ("unpublish" → "confirm?" → done)
+- **Drafts filter** — owner sees "all · drafts" filter links at the top of the articles page to quickly view only draft articles
+- **"Edit draft" link** — draft articles show an amber-colored "edit draft" action instead of the generic "edit" for instant visual identification
+- **Strikethrough formatting** — new toolbar button (S̶) in the article editor for strikethrough text
+- **Inline code formatting** — new toolbar button (<>) wraps selected text in `<code>` with monospace styling; toggleable
+- **Horizontal rule** — new toolbar button (―) inserts a subtle separator line between article sections
+
+#### Changed
+
+- Draft badge removed entirely — draft status is now communicated through the amber "edit draft" action link rather than a badge
+- Article editor toolbar reordered: B, I, U, S̶, <>, link, H2, H3, OL, UL, blockquote, ―, ↵
+- HTML sanitizer now allows `<s>`, `<strike>`, `<code>`, and `<hr>` tags
+- Delete on articles listing now fades out the item in-place instead of doing a full page redirect
+
+#### Fixed
+
+- **Critical: JavaScript IIFE crash** — a regex literal inside the layout template was being mangled by template literal backslash processing, producing invalid JS that killed all client-side functionality (hamburger menu, delete confirmations, copy actions, everything). Removed the offending unused variable.
 
 ### Version 3.1.0
 

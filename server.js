@@ -302,10 +302,10 @@ function sanitizeArticleHtml(html) {
         // Downgrade h1 to h2
         .replace(/<h1[^>]*>/gi, '<h2>')
         .replace(/<\/h1>/gi, '</h2>')
-        // Strip all tags except allowed ones (b, i, u, a, br, p, h2, h3, ol, ul, li, blockquote)
-        .replace(/<(?!\/?(b|i|u|a|br|p|h[23]|ol|ul|li|blockquote)\b)[^>]*>/gi, '')
+        // Strip all tags except allowed ones (b, i, u, s, strike, code, a, br, p, h2, h3, ol, ul, li, blockquote, hr)
+        .replace(/<(?!\/?(b|i|u|s|strike|code|a|br|p|h[23]|ol|ul|li|blockquote|hr)\b)[^>]*>/gi, '')
         // Remove all attributes from allowed tags (except <a>)
-        .replace(/<(b|i|u|br|p|h[23]|ol|ul|li|blockquote)\s[^>]*>/gi, '<$1>')
+        .replace(/<(b|i|u|s|strike|code|br|p|h[23]|ol|ul|li|blockquote|hr)\s[^>]*>/gi, '<$1>')
         // For <a>, keep only href attribute
         .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
         .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
@@ -313,16 +313,19 @@ function sanitizeArticleHtml(html) {
         .replace(/<a(?!\s+href)[^>]*>/gi, '<a>')
         // Clean up empty paragraphs (but keep <p><br></p> as intentional spacing)
         .replace(/<p>\s*<\/p>/gi, '')
-        // Remove <p> wrapping around block elements (headings, lists, blockquotes)
+        // Remove <p> wrapping around block elements (headings, lists, blockquotes, hr)
         .replace(/<p>\s*(<h[23]>)/gi, '$1')
         .replace(/(<\/h[23]>)\s*<\/p>/gi, '$1')
         .replace(/<p>\s*(<[ou]l>)/gi, '$1')
         .replace(/(<\/[ou]l>)\s*<\/p>/gi, '$1')
         .replace(/<p>\s*(<blockquote>)/gi, '$1')
         .replace(/(<\/blockquote>)\s*<\/p>/gi, '$1')
+        .replace(/<p>\s*(<hr>)\s*<\/p>/gi, '$1')
+        .replace(/<p>\s*(<hr>)/gi, '$1')
+        .replace(/(<hr>)\s*<\/p>/gi, '$1')
         .trim();
     // Ensure content is wrapped in <p> if it doesn't start with a block element
-    if (result && !result.match(/^<(p|h[23]|ol|ul|blockquote)/i)) {
+    if (result && !result.match(/^<(p|h[23]|ol|ul|blockquote|hr)/i)) {
         result = '<p>' + result + '</p>';
     }
     return result;
@@ -942,7 +945,15 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 .then(function(response) {
                     if (!response.ok) throw new Error('Delete failed');
                     if (isArticle) {
-                        window.location.href = '/articles';
+                        var listItem = form.closest('.article-list-item');
+                        if (listItem) {
+                            listItem.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
+                            listItem.style.opacity = '0';
+                            setTimeout(function() { listItem.style.maxHeight = '0'; listItem.style.marginBottom = '0'; listItem.style.paddingBottom = '0'; listItem.style.overflow = 'hidden'; }, 50);
+                            setTimeout(function() { listItem.remove(); }, 250);
+                        } else {
+                            window.location.href = '/articles';
+                        }
                     } else if (entry) {
                         entry.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
                         entry.style.opacity = '0';
@@ -964,6 +975,47 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 setTimeout(function() {
                     if (btn.dataset.confirming === 'true') {
                         btn.textContent = 'delete';
+                        btn.dataset.confirming = '';
+                    }
+                }, 3000);
+            }
+            return false;
+        };
+
+        // Unpublish handler
+        window.handleUnpublish = function(form) {
+            var btn = form.querySelector('.unpublish-btn');
+            if (btn && btn.dataset.confirming === 'true') {
+                btn.textContent = 'unpublishing...';
+                btn.disabled = true;
+                fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Unpublish failed');
+                    // Replace the unpublish form with an "edit draft" link
+                    var actionsSpan = form.closest('.article-list-actions');
+                    if (actionsSpan) {
+                        // Remove the unpublish form
+                        form.remove();
+                        // Change the edit link to "edit draft" with orange styling
+                        var editLink = actionsSpan.querySelector('.edit-link');
+                        if (editLink) {
+                            editLink.textContent = 'edit draft';
+                            editLink.className = 'edit-draft-link';
+                        }
+                    }
+                })
+                .catch(function() {
+                    if (btn) { btn.textContent = 'unpublish'; btn.disabled = false; btn.dataset.confirming = ''; }
+                    alert('Failed to unpublish.');
+                });
+                return false;
+            }
+            if (btn) {
+                btn.textContent = 'confirm?';
+                btn.dataset.confirming = 'true';
+                setTimeout(function() {
+                    if (btn.dataset.confirming === 'true') {
+                        btn.textContent = 'unpublish';
                         btn.dataset.confirming = '';
                     }
                 }, 3000);
@@ -2159,18 +2211,34 @@ const articleStyles = `
     .article-body blockquote, .article-content-editor blockquote { margin: 0.5em 0; padding: 0.4em 0 0.4em 1em; border-left: 3px solid var(--separator-color); color: var(--text-muted); font-style: italic; }
     .article-body a { color: var(--text-main); text-decoration: underline; }
     .article-body a:hover { opacity: 0.7; }
+    .article-body code, .article-content-editor code { font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 0.88em; background: var(--separator-color); padding: 2px 5px; border-radius: 3px; }
+    .article-body hr, .article-content-editor hr { border: none; border-top: 1px solid var(--separator-color); margin: 2em 0; }
     .editor-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 6px; margin-bottom: 10px; }
     .linebreak-btn { }
     .article-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
     .article-meta { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
     .article-list-item { padding-bottom: 6px; margin-bottom: 6px; }
-    .article-list-title { font-size: 0.95rem; font-weight: normal; }
+    .article-list-title { font-size: 0.95rem; font-weight: normal; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .article-list-title a { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
     .article-list-title a:hover { color: var(--text-main); }
+    .article-list-separator { color: var(--text-muted); opacity: 0.5; user-select: none; }
+    .article-filter-link { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
+    .article-filter-link:hover { color: var(--text-main); }
+    .article-filter-link.active { color: var(--text-main); font-weight: 600; }
+    .article-list-actions { display: inline-flex; align-items: center; gap: 10px; }
+    .article-list-actions .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
+    .article-list-actions .edit-link:hover { color: var(--text-main); }
+    .article-list-actions .edit-draft-link { color: #f0a030; text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: opacity 0.2s ease; }
+    .article-list-actions .edit-draft-link:hover { opacity: 0.7; }
+    .article-list-actions .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
+    .article-list-actions .delete-btn:hover { color: #ff7a7a; }
+    [data-theme="dark"] .article-list-actions .delete-btn { background: none !important; color: #d96b6b; }
+    .article-list-actions .unpublish-btn { background: none !important; color: var(--text-muted); border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; transition: color 0.2s ease; }
+    .article-list-actions .unpublish-btn:hover { color: var(--text-main); }
+    [data-theme="dark"] .article-list-actions .unpublish-btn { background: none !important; color: var(--text-muted); }
     .article-list-date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; }
     .article-year-heading { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; margin-top: 30px; }
     .article-year-heading:first-child { margin-top: 0; }
-    .draft-badge { display: inline-block; font-size: 0.7rem; color: var(--text-muted); border: 1px solid var(--separator-color); border-radius: 3px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
     .share-btn { background: none !important; border: none; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
     .share-btn:hover { color: var(--text-main); }
     [data-theme="dark"] .share-btn { background: none !important; color: var(--text-muted); }
@@ -2230,11 +2298,14 @@ const commentStyles = `
 // List articles
 app.get('/articles', async (req, res) => {
     try {
+        const filter = req.isOwner ? (req.query.filter || 'all') : 'published';
         let articles;
-        if (req.isOwner) {
-            articles = await db.all('SELECT * FROM articles ORDER BY timestamp DESC');
-        } else {
+        if (filter === 'drafts') {
+            articles = await db.all("SELECT * FROM articles WHERE status = 'draft' ORDER BY timestamp DESC");
+        } else if (filter === 'published' && !req.isOwner) {
             articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
+        } else {
+            articles = await db.all('SELECT * FROM articles ORDER BY timestamp DESC');
         }
 
         // Group by year
@@ -2254,12 +2325,23 @@ app.get('/articles', async (req, res) => {
             for (const year of years) {
                 listHTML += `<h2 class="article-year-heading">${year}</h2>`;
                 for (const article of grouped[year]) {
-                    const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
+                    const ownerActions = req.isOwner ? `
+                        <span class="article-list-separator">&middot;</span>
+                        <span class="article-list-actions">
+                            ${article.status === 'draft' ? `<a href="/articles/${article.id}/edit" class="edit-draft-link">edit draft</a>` : `<a href="/articles/${article.id}/edit" class="edit-link">edit</a>`}
+                            <form action="/articles/${article.id}/delete" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
+                                <button type="submit" class="delete-btn">delete</button>
+                            </form>
+                            ${article.status === 'published' ? `<form action="/articles/${article.id}/unpublish" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleUnpublish(this)">
+                                <button type="submit" class="unpublish-btn">unpublish</button>
+                            </form>` : ''}
+                        </span>
+                    ` : '';
                     listHTML += `
                         <div class="article-list-item">
                             <div class="article-list-title">
                                 <a href="/articles/${article.id}">${escapeHtml(article.title)}</a>
-                                ${draftBadge}
+                                ${ownerActions}
                             </div>
                         </div>
                     `;
@@ -2273,9 +2355,18 @@ app.get('/articles', async (req, res) => {
             </div>
         ` : '';
 
+        const filterBar = req.isOwner ? `
+            <div style="margin-bottom:20px;font-size:0.85rem;">
+                <a href="/articles" class="article-filter-link${filter === 'all' ? ' active' : ''}">all</a>
+                <span class="article-list-separator">&middot;</span>
+                <a href="/articles?filter=drafts" class="article-filter-link${filter === 'drafts' ? ' active' : ''}">drafts</a>
+            </div>
+        ` : '';
+
         const bodyContent = `
             <style>${articleStyles}</style>
             ${newArticleBtn}
+            ${filterBar}
             ${listHTML}
         `;
 
@@ -2308,12 +2399,15 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" data-cmd="bold" onclick="execCmd('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
                 <button type="button" data-cmd="italic" onclick="execCmd('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
                 <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+                <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+                <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code">&lt;&gt;</button>
                 <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
                 <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                 <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                 <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
                 <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
                 <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                <button type="button" onclick="execSeparator()" title="Horizontal rule">&#8213;</button>
                 <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
@@ -2420,6 +2514,46 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 document.execCommand('insertHTML', false, '<br><br>');
             }
         }
+        function execSeparator() {
+            var editor = document.getElementById('article-content');
+            editor.focus();
+            document.execCommand('insertHTML', false, '<hr><p><br></p>');
+        }
+        function execInlineCode() {
+            var editor = document.getElementById('article-content');
+            var sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                var range = sel.getRangeAt(0);
+                // Check if already inside a <code> element
+                var node = sel.anchorNode;
+                while (node && node !== editor) {
+                    if (node.nodeType === 1 && node.tagName === 'CODE') {
+                        // Unwrap: replace <code> with its text content
+                        var text = document.createTextNode(node.textContent);
+                        node.parentNode.replaceChild(text, node);
+                        // Re-select the text
+                        var newRange = document.createRange();
+                        newRange.selectNodeContents(text);
+                        sel.removeAllRanges();
+                        sel.addRange(newRange);
+                        updateToolbarState();
+                        return;
+                    }
+                    node = node.parentNode;
+                }
+                // Wrap selection in <code>
+                if (!range.collapsed) {
+                    var code = document.createElement('code');
+                    range.surroundContents(code);
+                    sel.removeAllRanges();
+                    var newRange = document.createRange();
+                    newRange.selectNodeContents(code);
+                    sel.addRange(newRange);
+                }
+            }
+            editor.focus();
+            updateToolbarState();
+        }
         function getCurrentBlock() {
             var sel = window.getSelection();
             if (!sel.rangeCount) return null;
@@ -2441,6 +2575,18 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 if (cmd === 'bold') active = document.queryCommandState('bold');
                 else if (cmd === 'italic') active = document.queryCommandState('italic');
                 else if (cmd === 'underline') active = document.queryCommandState('underline');
+                else if (cmd === 'strikeThrough') active = document.queryCommandState('strikeThrough');
+                else if (cmd === 'code') {
+                    var sel = window.getSelection();
+                    if (sel.rangeCount > 0) {
+                        var node = sel.anchorNode;
+                        var editor = document.getElementById('article-content');
+                        while (node && node !== editor) {
+                            if (node.nodeType === 1 && node.tagName === 'CODE') { active = true; break; }
+                            node = node.parentNode;
+                        }
+                    }
+                }
                 else if (cmd === 'insertOrderedList') active = document.queryCommandState('insertOrderedList');
                 else if (cmd === 'insertUnorderedList') active = document.queryCommandState('insertUnorderedList');
                 else if (cmd === 'h2' || cmd === 'h3') {
@@ -2727,7 +2873,6 @@ app.get('/articles/:id', async (req, res) => {
 
         const dateStr = formatDate(article.timestamp);
         const fullDate = new Date(article.timestamp).toLocaleString();
-        const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
 
         const ownerActions = req.isOwner ? `
             <a href="/articles/${article.id}/edit" class="edit-link">edit</a>
@@ -2739,7 +2884,7 @@ app.get('/articles/:id', async (req, res) => {
         const bodyContent = `
             <style>${articleStyles}${commentStyles}</style>
             <article>
-                <h1 class="article-title">${escapeHtml(article.title)} ${draftBadge}</h1>
+                <h1 class="article-title">${escapeHtml(article.title)}</h1>
                 <div class="article-meta" title="${fullDate}">${dateStr}</div>
                 <div class="article-body">${article.content}</div>
                 <div class="actions" style="margin-top:20px;">
@@ -3056,12 +3201,15 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <button type="button" data-cmd="bold" onclick="execCmd('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
                     <button type="button" data-cmd="italic" onclick="execCmd('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
                     <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+                    <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+                    <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code">&lt;&gt;</button>
                     <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
                     <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                     <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                     <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
                     <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
                     <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                    <button type="button" onclick="execSeparator()" title="Horizontal rule">&#8213;</button>
                     <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
                 </div>
                 <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
@@ -3164,6 +3312,42 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     document.execCommand('insertHTML', false, '<br><br>');
                 }
             }
+            function execSeparator() {
+                var editor = document.getElementById('article-content');
+                editor.focus();
+                document.execCommand('insertHTML', false, '<hr><p><br></p>');
+            }
+            function execInlineCode() {
+                var editor = document.getElementById('article-content');
+                var sel = window.getSelection();
+                if (sel.rangeCount > 0) {
+                    var range = sel.getRangeAt(0);
+                    var node = sel.anchorNode;
+                    while (node && node !== editor) {
+                        if (node.nodeType === 1 && node.tagName === 'CODE') {
+                            var text = document.createTextNode(node.textContent);
+                            node.parentNode.replaceChild(text, node);
+                            var newRange = document.createRange();
+                            newRange.selectNodeContents(text);
+                            sel.removeAllRanges();
+                            sel.addRange(newRange);
+                            updateToolbarState();
+                            return;
+                        }
+                        node = node.parentNode;
+                    }
+                    if (!range.collapsed) {
+                        var code = document.createElement('code');
+                        range.surroundContents(code);
+                        sel.removeAllRanges();
+                        var newRange = document.createRange();
+                        newRange.selectNodeContents(code);
+                        sel.addRange(newRange);
+                    }
+                }
+                editor.focus();
+                updateToolbarState();
+            }
             function getCurrentBlock() {
                 var sel = window.getSelection();
                 if (!sel.rangeCount) return null;
@@ -3185,6 +3369,18 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     if (cmd === 'bold') active = document.queryCommandState('bold');
                     else if (cmd === 'italic') active = document.queryCommandState('italic');
                     else if (cmd === 'underline') active = document.queryCommandState('underline');
+                    else if (cmd === 'strikeThrough') active = document.queryCommandState('strikeThrough');
+                    else if (cmd === 'code') {
+                        var sel = window.getSelection();
+                        if (sel.rangeCount > 0) {
+                            var node = sel.anchorNode;
+                            var editor = document.getElementById('article-content');
+                            while (node && node !== editor) {
+                                if (node.nodeType === 1 && node.tagName === 'CODE') { active = true; break; }
+                                node = node.parentNode;
+                            }
+                        }
+                    }
                     else if (cmd === 'insertOrderedList') active = document.queryCommandState('insertOrderedList');
                     else if (cmd === 'insertUnorderedList') active = document.queryCommandState('insertUnorderedList');
                     else if (cmd === 'h2' || cmd === 'h3') {
@@ -3410,6 +3606,24 @@ app.post('/articles/:id/delete', requireOwner, async (req, res) => {
             return res.status(500).json({ success: false });
         }
         res.status(500).send('Error deleting article.');
+    }
+});
+
+// Unpublish article (set status to draft)
+app.post('/articles/:id/unpublish', requireOwner, async (req, res) => {
+    try {
+        await db.run("UPDATE articles SET status = 'draft' WHERE id = ?", [req.params.id]);
+
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.json({ success: true });
+        }
+
+        res.redirect('/articles');
+    } catch (err) {
+        if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+            return res.status(500).json({ success: false });
+        }
+        res.status(500).send('Error unpublishing article.');
     }
 });
 
