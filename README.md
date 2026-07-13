@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.2.1**
+**Version 3.2.2**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -257,6 +257,20 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.2.2
+
+#### Added
+
+- **Unsaved changes protection on edit post page** — navigating away while editing a post now shows "You have unsaved changes. Discard?" (tracks original content, only warns if changed)
+- **Unsaved changes protection on homepage compose** — typing a post and clicking any link triggers confirmation; also adds `beforeunload` for browser close/refresh
+- **Delegated link click interception** — all internal link clicks (header, hamburger menu, random, articles, etc.) are caught on compose/edit pages and checked for unsaved work before allowing navigation
+- **Edit article cancel link now confirms** — previously navigated without warning; now shows the discard prompt if there are unsaved changes
+
+#### Fixed
+
+- **Double prompt on navigation** — confirming the custom "Discard?" dialog no longer triggers the browser's native "Changes may not be saved" beforeunload prompt (a navigation flag disables the beforeunload handler after user confirms)
+- **Random link feedback after cancelled navigation** — "randomizing..." text and loading spinner no longer appear if the user cancels navigation due to unsaved changes (deferred via `setTimeout` with `defaultPrevented` check)
 
 ### Version 3.2.1
 

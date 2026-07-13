@@ -900,18 +900,22 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
 
         // Random link feedback
         document.querySelectorAll('a[href="/random"]').forEach(function(link) {
-            link.addEventListener('click', function() {
+            link.addEventListener('click', function(e) {
+                // Don't show feedback if navigation was cancelled (e.g. unsaved changes)
+                setTimeout(function() {
+                    if (e.defaultPrevented) return;
 
-                // Mobile icon version
-                if (link.classList.contains('mobile-random-btn')) {
-                    link.classList.add('loading');
+                    // Mobile icon version
+                    if (link.classList.contains('mobile-random-btn')) {
+                        link.classList.add('loading');
+                        link.style.pointerEvents = 'none';
+                        return;
+                    }
+
+                    // Desktop text version
+                    link.textContent = 'randomizing...';
                     link.style.pointerEvents = 'none';
-                    return;
-                }
-
-                // Desktop text version
-                link.textContent = 'randomizing...';
-                link.style.pointerEvents = 'none';
+                }, 0);
             });
         });
 
@@ -1500,33 +1504,6 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                         charCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
                     });
                 }
-                // Unsaved changes protection for new post
-                var newPostSaved = false;
-                function hasNewPostUnsavedChanges() {
-                    if (!publishBox || newPostSaved) return false;
-                    return publishBox.value.trim().length > 0;
-                }
-                // Mark saved when the form submits (the form has no JS, but the button text changes)
-                var newPostForm = publishBox ? publishBox.closest('form') : null;
-                if (newPostForm) {
-                    newPostForm.addEventListener('submit', function() {
-                        newPostSaved = true;
-                    });
-                }
-                window.addEventListener('beforeunload', function(e) {
-                    if (hasNewPostUnsavedChanges()) {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    }
-                });
-                document.addEventListener('click', function(e) {
-                    var link = e.target.closest('a');
-                    if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && hasNewPostUnsavedChanges()) {
-                        if (!confirm('You have unsaved changes. Discard?')) {
-                            e.preventDefault();
-                        }
-                    }
-                });
 
                 document.addEventListener('keydown', function(e) {
                     var tag = e.target.tagName.toLowerCase();
@@ -1537,6 +1514,30 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                         if (box) box.focus();
                     }
                 });
+
+                // Unsaved post changes protection
+                if (publishBox) {
+                    var postNavigating = false;
+                    window.addEventListener('beforeunload', function(e) {
+                        if (!postNavigating && publishBox.value.trim()) {
+                            e.preventDefault();
+                            e.returnValue = '';
+                        }
+                    });
+                    document.addEventListener('click', function(e) {
+                        var link = e.target.closest('a');
+                        if (!link || !link.href) return;
+                        if (link.getAttribute('href') === '#') return;
+                        if (publishBox.value.trim()) {
+                            if (!confirm('You have unsaved changes. Discard?')) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            } else {
+                                postNavigating = true;
+                            }
+                        }
+                    }, true);
+                }
             </script>
         `;
 
@@ -1940,11 +1941,6 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 var editBox = document.getElementById('edit-box');
                 var editCounter = document.getElementById('edit-char-counter');
                 var originalContent = editBox.value;
-                var postSaved = false;
-                function hasPostUnsavedChanges() {
-                    if (postSaved) return false;
-                    return editBox.value !== originalContent;
-                }
                 function updateCount() {
                     var text = editBox.value;
                     var chars = text.length;
@@ -1953,27 +1949,30 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 }
                 editBox.addEventListener('input', updateCount);
                 updateCount();
+
+                function hasUnsavedChanges() {
+                    return editBox.value !== originalContent;
+                }
+                var editNavigating = false;
                 window.addEventListener('beforeunload', function(e) {
-                    if (hasPostUnsavedChanges()) {
+                    if (!editNavigating && hasUnsavedChanges()) {
                         e.preventDefault();
                         e.returnValue = '';
                     }
                 });
                 document.addEventListener('click', function(e) {
                     var link = e.target.closest('a');
-                    if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && hasPostUnsavedChanges()) {
+                    if (!link || !link.href) return;
+                    if (link.getAttribute('href') === '#') return;
+                    if (hasUnsavedChanges()) {
                         if (!confirm('You have unsaved changes. Discard?')) {
                             e.preventDefault();
+                            e.stopPropagation();
+                        } else {
+                            editNavigating = true;
                         }
                     }
-                });
-                // Mark saved on form submit
-                var form = editBox.closest('form');
-                if (form) {
-                    form.addEventListener('submit', function() {
-                        postSaved = true;
-                    });
-                }
+                }, true);
             });
             </script>
         `;
@@ -2795,16 +2794,20 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 e.returnValue = '';
             }
         });
-        // Warn before navigating away via internal links
         document.addEventListener('click', function(e) {
             var link = e.target.closest('a');
-            if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && hasUnsavedChanges()) {
+            if (!link || !link.href) return;
+            if (link.getAttribute('href') === '#') return;
+            if (link.onclick && link.getAttribute('onclick') && link.getAttribute('onclick').indexOf('confirmCancel') !== -1) return;
+            if (hasUnsavedChanges()) {
                 if (!confirm('You have unsaved changes. Discard?')) {
                     e.preventDefault();
+                    e.stopPropagation();
+                } else {
+                    articleSaved = true;
                 }
             }
-        });
-        // Article word/character counter
+        }, true);
         (function() {
             var editor = document.getElementById('article-content');
             var counter = document.getElementById('article-char-counter');
@@ -3296,7 +3299,7 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                         ${article.status === 'draft' ? 'Publish' : 'Update'}
                     </button>
                     ${article.status === 'published' ? '' : '<button type="button" onclick="updateArticle(\'draft\')" style="background:var(--separator-color);color:var(--text-main);">Save draft</button>'}
-                    <a href="/articles/${article.id}" class="back-link" style="margin-left:10px;" onclick="articleSaved=true;">cancel</a>
+                    <a href="/articles/${article.id}" class="back-link" style="margin-left:10px;" onclick="if(!articleSaved&&!confirm('You have unsaved changes. Discard?'))return false;articleSaved=true;">cancel</a>
                 </div>
             </form>
             <script>
@@ -3570,27 +3573,26 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 }
             });
             var articleSaved = false;
-            function editHasUnsavedChanges() {
-                if (articleSaved) return false;
-                var title = document.getElementById('article-title').value.trim();
-                var content = document.getElementById('article-content').textContent.trim();
-                return !!(title || content);
-            }
             window.addEventListener('beforeunload', function(e) {
                 if (!articleSaved) {
                     e.preventDefault();
                     e.returnValue = '';
                 }
             });
-            // Warn before navigating away via internal links
             document.addEventListener('click', function(e) {
                 var link = e.target.closest('a');
-                if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && editHasUnsavedChanges()) {
+                if (!link || !link.href) return;
+                if (link.getAttribute('href') === '#') return;
+                if (link.onclick && link.getAttribute('onclick') && link.getAttribute('onclick').indexOf('articleSaved') !== -1) return;
+                if (!articleSaved) {
                     if (!confirm('You have unsaved changes. Discard?')) {
                         e.preventDefault();
+                        e.stopPropagation();
+                    } else {
+                        articleSaved = true;
                     }
                 }
-            });
+            }, true);
             // Article word/character counter
             (function() {
                 var editor = document.getElementById('article-content');
