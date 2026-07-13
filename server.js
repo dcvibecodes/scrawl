@@ -2741,6 +2741,15 @@ app.get('/articles/new', requireOwner, (req, res) => {
                 e.returnValue = '';
             }
         });
+        // Warn before navigating away via internal links
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a');
+            if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && hasUnsavedChanges()) {
+                if (!confirm('You have unsaved changes. Discard?')) {
+                    e.preventDefault();
+                }
+            }
+        });
         // Article word/character counter
         (function() {
             var editor = document.getElementById('article-content');
@@ -3507,10 +3516,25 @@ app.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 }
             });
             var articleSaved = false;
+            function editHasUnsavedChanges() {
+                if (articleSaved) return false;
+                var title = document.getElementById('article-title').value.trim();
+                var content = document.getElementById('article-content').textContent.trim();
+                return !!(title || content);
+            }
             window.addEventListener('beforeunload', function(e) {
                 if (!articleSaved) {
                     e.preventDefault();
                     e.returnValue = '';
+                }
+            });
+            // Warn before navigating away via internal links
+            document.addEventListener('click', function(e) {
+                var link = e.target.closest('a');
+                if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && editHasUnsavedChanges()) {
+                    if (!confirm('You have unsaved changes. Discard?')) {
+                        e.preventDefault();
+                    }
                 }
             });
             // Article word/character counter
