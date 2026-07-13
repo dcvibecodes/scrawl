@@ -1500,6 +1500,33 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                         charCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
                     });
                 }
+                // Unsaved changes protection for new post
+                var newPostSaved = false;
+                function hasNewPostUnsavedChanges() {
+                    if (!publishBox || newPostSaved) return false;
+                    return publishBox.value.trim().length > 0;
+                }
+                // Mark saved when the form submits (the form has no JS, but the button text changes)
+                var newPostForm = publishBox ? publishBox.closest('form') : null;
+                if (newPostForm) {
+                    newPostForm.addEventListener('submit', function() {
+                        newPostSaved = true;
+                    });
+                }
+                window.addEventListener('beforeunload', function(e) {
+                    if (hasNewPostUnsavedChanges()) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
+                document.addEventListener('click', function(e) {
+                    var link = e.target.closest('a');
+                    if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && hasNewPostUnsavedChanges()) {
+                        if (!confirm('You have unsaved changes. Discard?')) {
+                            e.preventDefault();
+                        }
+                    }
+                });
 
                 document.addEventListener('keydown', function(e) {
                     var tag = e.target.tagName.toLowerCase();
@@ -1912,6 +1939,12 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 attachAutoResize('edit-box');
                 var editBox = document.getElementById('edit-box');
                 var editCounter = document.getElementById('edit-char-counter');
+                var originalContent = editBox.value;
+                var postSaved = false;
+                function hasPostUnsavedChanges() {
+                    if (postSaved) return false;
+                    return editBox.value !== originalContent;
+                }
                 function updateCount() {
                     var text = editBox.value;
                     var chars = text.length;
@@ -1920,6 +1953,27 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                 }
                 editBox.addEventListener('input', updateCount);
                 updateCount();
+                window.addEventListener('beforeunload', function(e) {
+                    if (hasPostUnsavedChanges()) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
+                document.addEventListener('click', function(e) {
+                    var link = e.target.closest('a');
+                    if (link && link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.classList.contains('back-link') && hasPostUnsavedChanges()) {
+                        if (!confirm('You have unsaved changes. Discard?')) {
+                            e.preventDefault();
+                        }
+                    }
+                });
+                // Mark saved on form submit
+                var form = editBox.closest('form');
+                if (form) {
+                    form.addEventListener('submit', function() {
+                        postSaved = true;
+                    });
+                }
             });
             </script>
         `;
