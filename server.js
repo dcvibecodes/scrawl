@@ -615,6 +615,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <link rel="alternate" type="application/json" href="/api/posts" title="All posts (JSON)">
     <link rel="alternate" type="application/rss+xml" href="/feed/posts" title="Posts RSS Feed">
     <link rel="alternate" type="application/rss+xml" href="/feed/articles" title="Articles RSS Feed">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="${escapeHtml(blogTitle)}">
@@ -991,17 +992,18 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 fetch(form.action, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function(response) {
                     if (!response.ok) throw new Error('Unpublish failed');
-                    // Replace the unpublish form with an "edit draft" link
-                    var actionsSpan = form.closest('.article-list-actions');
-                    if (actionsSpan) {
+                    var listItem = form.closest('.article-list-item');
+                    if (listItem) {
+                        // Add draft badge next to the article name
+                        var titleDiv = listItem.querySelector('.article-list-title');
+                        if (titleDiv && !titleDiv.querySelector('.draft-badge')) {
+                            var badge = document.createElement('span');
+                            badge.className = 'draft-badge';
+                            badge.textContent = 'draft';
+                            titleDiv.appendChild(badge);
+                        }
                         // Remove the unpublish form
                         form.remove();
-                        // Change the edit link to "edit draft" with orange styling
-                        var editLink = actionsSpan.querySelector('.edit-link');
-                        if (editLink) {
-                            editLink.textContent = 'edit draft';
-                            editLink.className = 'edit-draft-link';
-                        }
                     }
                 })
                 .catch(function() {
@@ -2188,8 +2190,8 @@ app.post('/contact/:id/delete', requireOwner, async (req, res) => {
 
 // Articles styles (additional to shared)
 const articleStyles = `
-    .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; }
-    .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; }
+    .article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; flex-shrink: 0; }
     .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
     .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
     [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
@@ -2216,26 +2218,30 @@ const articleStyles = `
     .editor-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 6px; margin-bottom: 10px; }
     .linebreak-btn { }
     .article-title { font-size: 1.4rem; font-weight: 600; margin-bottom: 8px; line-height: 1.3; }
+    .article-title .draft-badge { position: relative; top: -0.15em; }
     .article-meta { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
     .article-list-item { padding-bottom: 6px; margin-bottom: 6px; }
+    .article-list-item.options-visible { padding-bottom: 10px; margin-bottom: 10px; }
     .article-list-title { font-size: 0.95rem; font-weight: normal; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
     .article-list-title a { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
     .article-list-title a:hover { color: var(--text-main); }
-    .article-list-separator { color: var(--text-muted); opacity: 0.5; user-select: none; }
+    .article-list-separator { color: var(--text-muted); opacity: 0.5; margin: 0 6px; user-select: none; }
     .article-filter-link { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
     .article-filter-link:hover { color: var(--text-main); }
     .article-filter-link.active { color: var(--text-main); font-weight: 600; }
-    .article-list-actions { display: inline-flex; align-items: center; gap: 10px; }
+    .article-toggle-options { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; cursor: pointer; transition: color 0.2s ease; user-select: none; }
+    .article-toggle-options:hover { color: var(--text-main); }
+    .draft-badge { display: inline-block; font-size: 0.7rem; color: #d96b6b; border: 1px solid #d96b6b; border-radius: 3px; padding: 1px 6px; vertical-align: middle; }
+    .article-list-actions { display: none; align-items: center; gap: 10px; margin-top: 4px; }
+    .article-list-actions.visible { display: flex; }
     .article-list-actions .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
     .article-list-actions .edit-link:hover { color: var(--text-main); }
-    .article-list-actions .edit-draft-link { color: #f0a030; text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: opacity 0.2s ease; }
-    .article-list-actions .edit-draft-link:hover { opacity: 0.7; }
-    .article-list-actions .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
-    .article-list-actions .delete-btn:hover { color: #ff7a7a; }
-    [data-theme="dark"] .article-list-actions .delete-btn { background: none !important; color: #d96b6b; }
     .article-list-actions .unpublish-btn { background: none !important; color: var(--text-muted); border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; transition: color 0.2s ease; }
     .article-list-actions .unpublish-btn:hover { color: var(--text-main); }
     [data-theme="dark"] .article-list-actions .unpublish-btn { background: none !important; color: var(--text-muted); }
+    .article-list-actions .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
+    .article-list-actions .delete-btn:hover { color: #ff7a7a; }
+    [data-theme="dark"] .article-list-actions .delete-btn { background: none !important; color: #d96b6b; }
     .article-list-date { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; }
     .article-year-heading { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; margin-top: 30px; }
     .article-year-heading:first-child { margin-top: 0; }
@@ -2325,24 +2331,25 @@ app.get('/articles', async (req, res) => {
             for (const year of years) {
                 listHTML += `<h2 class="article-year-heading">${year}</h2>`;
                 for (const article of grouped[year]) {
+                    const draftBadge = article.status === 'draft' ? '<span class="draft-badge">draft</span>' : '';
                     const ownerActions = req.isOwner ? `
-                        <span class="article-list-separator">&middot;</span>
-                        <span class="article-list-actions">
-                            ${article.status === 'draft' ? `<a href="/articles/${article.id}/edit" class="edit-draft-link">edit draft</a>` : `<a href="/articles/${article.id}/edit" class="edit-link">edit</a>`}
-                            <form action="/articles/${article.id}/delete" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
-                                <button type="submit" class="delete-btn">delete</button>
-                            </form>
+                        <div class="article-list-actions">
+                            <a href="/articles/${article.id}/edit" class="edit-link">edit</a>
                             ${article.status === 'published' ? `<form action="/articles/${article.id}/unpublish" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleUnpublish(this)">
                                 <button type="submit" class="unpublish-btn">unpublish</button>
                             </form>` : ''}
-                        </span>
+                            <form action="/articles/${article.id}/delete" method="POST" style="background:none;padding:0;margin:0;display:inline;" onsubmit="return handleDelete(this)">
+                                <button type="submit" class="delete-btn">delete</button>
+                            </form>
+                        </div>
                     ` : '';
                     listHTML += `
                         <div class="article-list-item">
                             <div class="article-list-title">
                                 <a href="/articles/${article.id}">${escapeHtml(article.title)}</a>
-                                ${ownerActions}
+                                ${draftBadge}
                             </div>
+                            ${ownerActions}
                         </div>
                     `;
                 }
@@ -2356,12 +2363,14 @@ app.get('/articles', async (req, res) => {
         ` : '';
 
         const filterBar = req.isOwner ? `
-            <div style="margin-bottom:20px;font-size:0.85rem;">
+            <div style="margin-bottom:20px;font-size:0.85rem;display:flex;align-items:center;gap:0;">
                 <a href="/articles" class="article-filter-link${filter === 'all' ? ' active' : ''}">all</a>
                 <span class="article-list-separator">&middot;</span>
                 <a href="/articles?filter=published" class="article-filter-link${filter === 'published' ? ' active' : ''}">published</a>
                 <span class="article-list-separator">&middot;</span>
                 <a href="/articles?filter=drafts" class="article-filter-link${filter === 'drafts' ? ' active' : ''}">drafts</a>
+                <span style="flex:1;"></span>
+                <span class="article-toggle-options" id="toggleOptions" onclick="toggleArticleOptions()">show options</span>
             </div>
         ` : '';
 
@@ -2370,6 +2379,7 @@ app.get('/articles', async (req, res) => {
             ${newArticleBtn}
             ${filterBar}
             ${listHTML}
+            ${req.isOwner ? '<script>function toggleArticleOptions(){var els=document.querySelectorAll(".article-list-actions");var items=document.querySelectorAll(".article-list-item");var btn=document.getElementById("toggleOptions");var showing=btn.textContent==="hide options";els.forEach(function(el){if(showing)el.classList.remove("visible");else el.classList.add("visible")});items.forEach(function(el){if(showing)el.classList.remove("options-visible");else el.classList.add("options-visible")});btn.textContent=showing?"show options":"hide options"}</script>' : ''}
         `;
 
         res.send(layoutTemplate({
@@ -2875,6 +2885,7 @@ app.get('/articles/:id', async (req, res) => {
 
         const dateStr = formatDate(article.timestamp);
         const fullDate = new Date(article.timestamp).toLocaleString();
+        const draftBadge = (article.status === 'draft' && req.isOwner) ? ' <span class="draft-badge">draft</span>' : '';
 
         const ownerActions = req.isOwner ? `
             <a href="/articles/${article.id}/edit" class="edit-link">edit</a>
@@ -2886,7 +2897,7 @@ app.get('/articles/:id', async (req, res) => {
         const bodyContent = `
             <style>${articleStyles}${commentStyles}</style>
             <article>
-                <h1 class="article-title">${escapeHtml(article.title)}</h1>
+                <h1 class="article-title">${escapeHtml(article.title)}${draftBadge}</h1>
                 <div class="article-meta" title="${fullDate}">${dateStr}</div>
                 <div class="article-body">${article.content}</div>
                 <div class="actions" style="margin-top:20px;">

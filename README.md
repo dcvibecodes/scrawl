@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.2.0**
+**Version 3.2.1**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -257,6 +257,28 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.2.1
+
+#### Added
+
+- **Published filter** — articles page now has three filters for the owner: all, published, drafts
+- **Show/Hide Options toggle** — action links (edit, unpublish, delete) are hidden by default; a "show options" link in the filter bar reveals them on demand
+- **Draft badge** — red-bordered badge appears next to draft article names on the listing and on the article detail page title
+
+#### Changed
+
+- Article action links now render below the article name (not inline), only visible when "show options" is active
+- Action link order changed to: edit, unpublish, delete (delete always last)
+- Article listing spacing is tight by default, only expands when options are shown
+- Article editor toolbar is now horizontally scrollable on mobile instead of clipping off-screen
+- Draft badge uses `vertical-align: middle` for proper alignment with article titles
+- Filter bar dots now have proper `margin: 0 6px` spacing matching the header navigation
+
+#### Fixed
+
+- **Draft badge vertical alignment** — badge no longer sits below the article title text on the detail page
+- **PWA deprecation warning** — added standard `mobile-web-app-capable` meta tag alongside the Apple-prefixed version
 
 ### Version 3.2.0
 
