@@ -1927,7 +1927,8 @@ app.get('/api/export', requireOwner, async (req, res) => {
                 });
                 const plainContent = stripHtml(article.content);
                 md += `### ${article.title}\n\n`;
-                md += `Date: ${date}\n\n`;
+                md += `Date: ${date}\n`;
+                md += `URL: ${req.protocol}://${req.get('host')}/articles/${article.id}\n\n`;
                 md += `${plainContent}\n\n`;
                 md += `---\n\n`;
             }
@@ -1940,7 +1941,8 @@ app.get('/api/export', requireOwner, async (req, res) => {
                 const date = new Date(entry.timestamp).toLocaleDateString('en-US', {
                     month: 'long', day: 'numeric', year: 'numeric'
                 });
-                md += `Date: ${date}\n\n`;
+                md += `Date: ${date}\n`;
+                md += `URL: ${req.protocol}://${req.get('host')}/post/${entry.id}\n\n`;
                 md += `${entry.content}\n\n`;
                 md += `---\n\n`;
             }
