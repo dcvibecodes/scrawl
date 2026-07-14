@@ -1911,7 +1911,7 @@ app.get('/api/posts', async (req, res) => {
 
 app.get('/api/export', requireOwner, async (req, res) => {
     try {
-        const articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
+        const articles = await db.all("SELECT * FROM articles ORDER BY timestamp DESC");
         const entries = await db.all('SELECT * FROM entries ORDER BY timestamp DESC');
         const blogTitle = getBlogTitle();
 
@@ -1926,8 +1926,9 @@ app.get('/api/export', requireOwner, async (req, res) => {
                     month: 'long', day: 'numeric', year: 'numeric'
                 });
                 const plainContent = stripHtml(article.content);
-                md += `### ${article.title}\n\n`;
-                md += `Date: ${date}\n`;
+                const draftLabel = article.status === 'draft' ? ' (draft)' : '';
+                md += `### ${article.title}${draftLabel}\n\n`;
+                md += `Date: ${date}\n\n`;
                 md += `URL: ${req.protocol}://${req.get('host')}/articles/${article.id}\n\n`;
                 md += `${plainContent}\n\n`;
                 md += `---\n\n`;
@@ -1941,7 +1942,7 @@ app.get('/api/export', requireOwner, async (req, res) => {
                 const date = new Date(entry.timestamp).toLocaleDateString('en-US', {
                     month: 'long', day: 'numeric', year: 'numeric'
                 });
-                md += `Date: ${date}\n`;
+                md += `Date: ${date}\n\n`;
                 md += `URL: ${req.protocol}://${req.get('host')}/post/${entry.id}\n\n`;
                 md += `${entry.content}\n\n`;
                 md += `---\n\n`;

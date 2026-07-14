@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.2.3**
+**Version 3.2.4**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -265,6 +265,17 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.2.4
+
+#### Added
+
+- **Export includes URLs** — each article and post in the Markdown export now includes its full permalink URL
+- **Export includes draft articles** — drafts are now exported alongside published articles, marked with `(draft)` in the title
+
+#### Fixed
+
+- **Theme respects device preference** — on first visit (no saved preference), the app now follows the device/OS dark mode setting via `prefers-color-scheme`; manual theme choice still overrides and persists
 
 ### Version 3.2.3
 
