@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.2.2**
+**Version 3.2.3**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -145,6 +145,13 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - `<link rel="alternate">` tags for machine-readable discovery
 - Open Graph and Twitter Card meta for rich link previews
 
+### Export
+
+- Full Markdown export of all published articles and posts (`/api/export`)
+- Human-readable dates, full article content (plain text), complete post text
+- Downloads as a `.md` file named after the blog title
+- Owner-only — accessible from the menu when logged in
+
 ---
 
 ## Keyboard Shortcuts
@@ -176,6 +183,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | `/feed/articles` | RSS feed for articles |
 | `/sitemap.xml` | XML sitemap |
 | `/api/posts` | JSON API for all posts |
+| `/api/export` | Full Markdown export (owner) |
 | `/api/comments` | Comment submission endpoint |
 | `/login` | Owner login |
 | `/setup` | First-time password setup |
@@ -257,6 +265,15 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.2.3
+
+#### Added
+
+- **Full Markdown export** — owner can download all published articles and posts as a single `.md` file from the menu (both desktop and mobile)
+- Export includes human-readable dates, full article content (HTML stripped to plain text), and complete post text
+- File is named after the blog title (e.g., `my-blog-export.md`)
+- Endpoint is owner-only (`/api/export` requires authentication)
 
 ### Version 3.2.2
 

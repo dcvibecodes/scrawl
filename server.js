@@ -680,6 +680,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="/comments">comments${pendingComments ? ` (${pendingComments})` : ''}</a>
                     <a href="/feed/posts">rss: posts</a>
                     <a href="/feed/articles">rss: articles</a>
+                    <a href="/api/export">export</a>
                     <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
                     <a href="/logout">logout</a>
                 </div>
@@ -724,7 +725,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
         <a href="/archive">post archive</a>
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="#" id="mobileEditCopyright">edit footer</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
+            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="#" id="mobileEditCopyright">edit footer</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/api/export">export</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
             : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
@@ -1903,6 +1904,55 @@ app.get('/api/posts', async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: 'Failed to fetch posts.' });
+    }
+});
+
+// --- Export (Markdown download) ---
+
+app.get('/api/export', requireOwner, async (req, res) => {
+    try {
+        const articles = await db.all("SELECT * FROM articles WHERE status = 'published' ORDER BY timestamp DESC");
+        const entries = await db.all('SELECT * FROM entries ORDER BY timestamp DESC');
+        const blogTitle = getBlogTitle();
+
+        let md = `# ${blogTitle} — Full Export\n\n`;
+        md += `Exported on ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}\n\n`;
+
+        // Articles section
+        if (articles.length > 0) {
+            md += `---\n\n## Articles (${articles.length})\n\n`;
+            for (const article of articles) {
+                const date = new Date(article.timestamp).toLocaleDateString('en-US', {
+                    month: 'long', day: 'numeric', year: 'numeric'
+                });
+                const plainContent = stripHtml(article.content);
+                md += `### ${article.title}\n\n`;
+                md += `Date: ${date}\n\n`;
+                md += `${plainContent}\n\n`;
+                md += `---\n\n`;
+            }
+        }
+
+        // Posts section
+        if (entries.length > 0) {
+            md += `## Posts (${entries.length})\n\n`;
+            for (const entry of entries) {
+                const date = new Date(entry.timestamp).toLocaleDateString('en-US', {
+                    month: 'long', day: 'numeric', year: 'numeric'
+                });
+                md += `Date: ${date}\n\n`;
+                md += `${entry.content}\n\n`;
+                md += `---\n\n`;
+            }
+        }
+
+        const filename = blogTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-export.md';
+        res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(md);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error generating export.');
     }
 });
 
