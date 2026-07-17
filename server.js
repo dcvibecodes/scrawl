@@ -30,6 +30,54 @@ function getSessionSecret() {
     return fs.readFileSync(SECRET_FILE, 'utf8').trim();
 }
 
+// --- Spam Protection ---
+// In-memory rate limiter
+const rateLimitStore = new Map();
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_CONTACT = 3; // max 3 contact messages per hour per IP
+const RATE_LIMIT_MAX_COMMENTS = 5; // max 5 comments per hour per IP
+const SPAM_TIME_THRESHOLD = 3000; // minimum 3 seconds between form render and submit
+
+// Clean up expired rate limit entries every 10 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, data] of rateLimitStore) {
+        if (now - data.windowStart > RATE_LIMIT_WINDOW) {
+            rateLimitStore.delete(key);
+        }
+    }
+}, 10 * 60 * 1000);
+
+function checkRateLimit(ip, action, max) {
+    const key = `${ip}:${action}`;
+    const now = Date.now();
+    let entry = rateLimitStore.get(key);
+    if (!entry || (now - entry.windowStart > RATE_LIMIT_WINDOW)) {
+        entry = { windowStart: now, count: 0 };
+    }
+    entry.count++;
+    rateLimitStore.set(key, entry);
+    return entry.count <= max;
+}
+
+// Generate a time-based token (embedded in forms, verified on submit)
+function generateSpamToken() {
+    const timestamp = Date.now().toString(36);
+    const noise = crypto.randomBytes(8).toString('hex');
+    return `${timestamp}.${noise}`;
+}
+
+function validateSpamToken(token) {
+    if (!token || typeof token !== 'string') return false;
+    const parts = token.split('.');
+    if (parts.length !== 2) return false;
+    const timestamp = parseInt(parts[0], 36);
+    if (isNaN(timestamp)) return false;
+    const elapsed = Date.now() - timestamp;
+    // Must be at least 3 seconds old, and no older than 24 hours
+    return elapsed >= SPAM_TIME_THRESHOLD && elapsed <= 24 * 60 * 60 * 1000;
+}
+
 function isOwnerSetup() {
     return fs.existsSync(HASH_FILE);
 }
@@ -2134,6 +2182,8 @@ app.get('/contact', async (req, res) => {
                 <input type="text" name="name" placeholder="Name *" required style="margin-bottom:10px;">
                 <input type="text" name="email" placeholder="Email (optional)" style="margin-bottom:10px;">
                 <input type="text" name="subject" placeholder="Subject (optional)" style="margin-bottom:10px;">
+                <input type="text" name="website_url" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;">
+                <input type="hidden" name="_token" value="${generateSpamToken()}">
                 <textarea
                     id="contact-message"
                     name="content"
@@ -2164,7 +2214,9 @@ app.get('/contact', async (req, res) => {
                             name: form.name.value.trim(),
                             email: form.email.value.trim(),
                             subject: form.subject.value.trim(),
-                            content: form.content.value.trim()
+                            content: form.content.value.trim(),
+                            website_url: form.website_url.value,
+                            _token: form._token.value
                         })
                     })
                     .then(function(r) { return r.json(); })
@@ -2225,6 +2277,31 @@ app.get('/contact', async (req, res) => {
 
 app.post('/contact', async (req, res) => {
     try {
+        // --- Spam Protection ---
+        const honeypot = req.body.website_url;
+        const spamToken = req.body._token;
+        const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest';
+
+        // Honeypot check: if filled, silently reject (pretend success)
+        if (honeypot) {
+            if (isAjax) return res.json({ success: true });
+            return res.redirect('/contact');
+        }
+
+        // Time-based check: reject if submitted too fast
+        if (!validateSpamToken(spamToken)) {
+            if (isAjax) return res.status(400).json({ success: false, error: 'Please wait a moment before submitting.' });
+            return res.redirect('/contact');
+        }
+
+        // Rate limiting
+        const clientIp = req.ip || req.connection.remoteAddress;
+        if (!checkRateLimit(clientIp, 'contact', RATE_LIMIT_MAX_CONTACT)) {
+            if (isAjax) return res.status(429).json({ success: false, error: 'Too many messages. Please try again later.' });
+            return res.redirect('/contact');
+        }
+        // --- End Spam Protection ---
+
         let name, email, subject, content;
 
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
@@ -3035,6 +3112,8 @@ app.get('/articles/:id', async (req, res) => {
                     <div class="comment-form-row">
                         <input type="text" id="commentAuthor" placeholder="Your name" class="comment-author-input" autocomplete="off" ${req.isOwner && ownerName ? `value="${escapeHtml(ownerName)}" readonly style="opacity:0.6;cursor:default;"` : ''}>
                     </div>
+                    <input type="text" id="commentWebsite" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;">
+                    <input type="hidden" id="commentToken" value="${generateSpamToken()}">
                     <div class="comment-form-row">
                         <textarea id="commentContent" placeholder="Write a comment..." class="comment-textarea"></textarea>
                     </div>
@@ -3098,6 +3177,7 @@ app.get('/articles/:id', async (req, res) => {
                 var hint = ${req.isOwner ? "''" : "'<div style=\"font-size:0.7rem;color:var(--text-muted);opacity:0.5;margin-bottom:10px;\">Comments cannot be edited after posting.</div>'"};
                 container.innerHTML = '<div class="comment-form-wrapper reply-form">' +
                     '<div class="comment-form-row"><input type="text" class="comment-author-input reply-author" placeholder="Your name" value="' + escapeAttr(saved) + '" ' + readonlyAttr + ' autocomplete="off"></div>' +
+                    '<input type="text" class="reply-website" autocomplete="off" tabindex="-1" style="position:absolute;left:-9999px;opacity:0;height:0;width:0;">' +
                     '<div class="comment-form-row"><textarea class="comment-textarea reply-content" placeholder="Write a reply..."></textarea></div>' +
                     '<div class="char-counter reply-char-counter">0 words \\u00b7 0/2000 characters</div>' +
                     hint +
@@ -3132,18 +3212,20 @@ app.get('/articles/:id', async (req, res) => {
             }
 
             function submitComment(parentId) {
-                var author, content, statusEl, btn;
+                var author, content, statusEl, btn, honeypot;
                 if (parentId) {
                     var container = document.getElementById('reply-form-' + parentId);
                     author = container.querySelector('.reply-author').value.trim();
                     content = container.querySelector('.reply-content').value.trim();
                     statusEl = container.querySelector('.reply-status');
                     btn = container.querySelector('.reply-submit-btn');
+                    honeypot = container.querySelector('.reply-website') ? container.querySelector('.reply-website').value : '';
                 } else {
                     author = document.getElementById('commentAuthor').value.trim();
                     content = document.getElementById('commentContent').value.trim();
                     statusEl = document.getElementById('commentStatus');
                     btn = document.getElementById('mainSubmitBtn');
+                    honeypot = document.getElementById('commentWebsite') ? document.getElementById('commentWebsite').value : '';
                 }
 
                 if (!author) { statusEl.textContent = 'Please enter your name.'; statusEl.style.color = '#d96b6b'; var s=statusEl;setTimeout(function(){s.textContent='';},2000); return; }
@@ -3164,7 +3246,9 @@ app.get('/articles/:id', async (req, res) => {
                         article_id: '${article.id}',
                         parent_id: parentId || null,
                         author: author,
-                        content: content
+                        content: content,
+                        website_url: honeypot,
+                        _token: document.getElementById('commentToken') ? document.getElementById('commentToken').value : ''
                     })
                 })
                 .then(function(r) { return r.json(); })
@@ -3778,6 +3862,29 @@ app.post('/articles/:id/unpublish', requireOwner, async (req, res) => {
 // Submit a comment (public)
 app.post('/api/comments', async (req, res) => {
     try {
+        // --- Spam Protection (skip for owner) ---
+        if (!req.isOwner) {
+            const honeypot = req.body.website_url;
+            const spamToken = req.body._token;
+
+            // Honeypot check: if filled, silently fake success
+            if (honeypot) {
+                return res.json({ success: true, id: 'blocked' });
+            }
+
+            // Time-based check: reject if submitted too fast
+            if (!validateSpamToken(spamToken)) {
+                return res.status(400).json({ success: false, error: 'Please wait a moment before submitting.' });
+            }
+
+            // Rate limiting
+            const clientIp = req.ip || req.connection.remoteAddress;
+            if (!checkRateLimit(clientIp, 'comments', RATE_LIMIT_MAX_COMMENTS)) {
+                return res.status(429).json({ success: false, error: 'Too many comments. Please try again later.' });
+            }
+        }
+        // --- End Spam Protection ---
+
         const { article_id, parent_id, author, content } = req.body;
         if (!article_id || !author || !content) {
             return res.status(400).json({ success: false, error: 'Article ID, author, and content are required.' });
