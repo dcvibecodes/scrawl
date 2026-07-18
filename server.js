@@ -942,14 +942,13 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         // Random link feedback
         document.querySelectorAll('a[href="/random"]').forEach(function(link) {
             link.addEventListener('click', function(e) {
-                // Don't show feedback if navigation was cancelled (e.g. unsaved changes)
+                e.preventDefault();
+                link.classList.add('loading');
+                link.style.pointerEvents = 'none';
+                // Small delay so the dice roll animation renders before navigating
                 setTimeout(function() {
-                    if (e.defaultPrevented) return;
-
-                    // Roll the dice
-                    link.classList.add('loading');
-                    link.style.pointerEvents = 'none';
-                }, 0);
+                    window.location.href = link.href;
+                }, 100);
             });
         });
 
