@@ -512,7 +512,8 @@ const sharedStyles = `
     .nav-icon-btn { color: var(--text-muted); opacity: 0.6; line-height: 1; text-decoration: none; transition: opacity 0.2s ease; }
     .nav-icon-btn:hover { opacity: 1; }
     .nav-icon-btn svg { width: 16px; height: 16px; display: block; }
-    .nav-icon-btn.loading svg { animation: spin 1s linear infinite; }
+    .nav-icon-btn.random-btn svg { transform: rotate(-15deg); }
+    .nav-icon-btn.loading svg { animation: diceRoll 0.8s ease infinite; }
     .nav-text-btn { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; opacity: 0.7; transition: color 0.2s ease, opacity 0.2s ease; }
     .nav-text-btn:hover { color: var(--text-main); opacity: 1; }
     .back-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
@@ -561,24 +562,32 @@ const sharedStyles = `
     [data-theme="dark"] .search-bar-overlay .search-bar-close { background: none !important; color: var(--text-muted); }
 
 
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+    @keyframes diceRoll {
+        0% { transform: rotate(-15deg) translateY(0); }
+        12% { transform: rotate(25deg) translateY(-8px); }
+        24% { transform: rotate(-30deg) translateY(0); }
+        36% { transform: rotate(20deg) translateY(-6px); }
+        48% { transform: rotate(-20deg) translateY(0); }
+        60% { transform: rotate(15deg) translateY(-5px); }
+        72% { transform: rotate(-12deg) translateY(0); }
+        84% { transform: rotate(8deg) translateY(-3px); }
+        94% { transform: rotate(-15deg) translateY(0); }
+        100% { transform: rotate(-15deg) translateY(0); }
     }
     .hamburger-btn { display: none; background: none !important; border: none; padding: 0; margin: 0; cursor: pointer; color: var(--text-muted); opacity: 0.7; line-height: 1; }
     .hamburger-btn:hover { opacity: 1; }
     .hamburger-btn svg { width: 20px; height: 20px; display: block; }
     [data-theme="dark"] .hamburger-btn { background: none !important; color: var(--text-muted); }
-    .gear-wrapper { position: relative; display: inline-flex; align-items: center; }
-    .gear-btn { background: none !important; border: none; padding: 0; margin: 0; cursor: pointer; color: var(--text-muted); opacity: 0.6; display: flex; align-items: center; justify-content: center; line-height: 1; }
-    .gear-btn:hover { opacity: 1; }
-    .gear-btn svg { width: 16px; height: 16px; display: block; }
-    [data-theme="dark"] .gear-btn { background: none !important; color: var(--text-muted); }
-    .gear-dropdown { display: none; position: absolute; top: calc(100% + 10px); right: 0; background: var(--bg-body); border: 1px solid var(--separator-color); border-radius: 8px; padding: 6px 0; min-width: 120px; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .gear-dropdown.open { display: block; }
-    .gear-dropdown a { display: block; padding: 8px 16px; color: var(--text-main); text-decoration: none; font-size: 0.85rem; }
-    .gear-dropdown a:hover { background: var(--separator-color); }
-    [data-theme="dark"] .gear-dropdown { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .menu-wrapper { position: relative; display: inline-flex; align-items: center; }
+    .menu-btn { background: none !important; border: none; padding: 0; margin: 0; cursor: pointer; color: var(--text-muted); opacity: 0.6; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .menu-btn:hover { opacity: 1; }
+    .menu-btn svg { width: 16px; height: 16px; display: block; }
+    [data-theme="dark"] .menu-btn { background: none !important; color: var(--text-muted); }
+    .menu-dropdown { display: none; position: absolute; top: calc(100% + 10px); right: 0; background: var(--bg-body); border: 1px solid var(--separator-color); border-radius: 8px; padding: 6px 0; min-width: 120px; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .menu-dropdown.open { display: block; }
+    .menu-dropdown a { display: block; padding: 8px 16px; color: var(--text-main); text-decoration: none; font-size: 0.85rem; }
+    .menu-dropdown a:hover { background: var(--separator-color); }
+    [data-theme="dark"] .menu-dropdown { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
     .mobile-menu { position: fixed; top: 0; right: 0; bottom: 0; width: 260px; max-width: 80vw; background: var(--bg-body); z-index: 3000; padding: 30px 24px; transform: translateX(100%); transition: transform 0.25s ease; display: flex; flex-direction: column; box-shadow: -2px 0 12px rgba(0,0,0,0.08); }
     .mobile-menu.open { transform: translateX(0); }
     .mobile-menu-backdrop { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 2999; opacity: 0; transition: opacity 0.25s ease; touch-action: none; }
@@ -608,7 +617,7 @@ const sharedStyles = `
     .password-requirements { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; opacity: 0.7; }
     @media (max-width: 500px) {
         .hamburger-btn { display: block; }
-        .gear-wrapper { display: none; }
+        .menu-wrapper { display: none; }
     }
 `;
 
@@ -675,18 +684,19 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             </h1>
         </div>
         <div class="header-controls">
-            <a href="/random" class="nav-icon-btn random-btn" aria-label="Random">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="16 3 21 3 21 8"></polyline>
-                    <line x1="4" y1="20" x2="21" y2="3"></line>
-                    <polyline points="21 16 21 21 16 21"></polyline>
-                    <line x1="15" y1="15" x2="21" y2="21"></line>
-                    <line x1="4" y1="4" x2="9" y2="9"></line>
+            <a href="/random" class="nav-icon-btn random-btn" aria-label="Random" title="Random post">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
                 </svg>
             </a>
-            <a href="/articles" class="nav-text-btn">articles</a>
+            <a href="/articles" class="nav-text-btn" title="Articles">articles</a>
             <span class="inline-search" id="headerInlineSearch" style="margin:0;padding:0;">
-                <button type="button" class="search-icon-btn" id="searchOpenBtn" aria-label="Search" style="margin-top:0;">
+                <button type="button" class="search-icon-btn" id="searchOpenBtn" aria-label="Search" title="Search" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="7"></circle>
                         <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
@@ -694,15 +704,15 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 </button>
             </span>
             ${isOwner ? `
-            <span class="gear-wrapper" style="margin:0;padding:0;">
-                <button type="button" class="gear-btn" id="gearBtn" aria-label="Menu" style="margin-top:0;">
+            <span class="menu-wrapper" style="margin:0;padding:0;">
+                <button type="button" class="menu-btn" id="menuBtn" aria-label="Menu" title="Menu" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="3" y1="6" x2="21" y2="6"></line>
                         <line x1="3" y1="12" x2="21" y2="12"></line>
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <div class="gear-dropdown" id="gearDropdown">
+                <div class="menu-dropdown" id="menuDropdown">
                     <a href="/archive">post archive</a>
                     <a href="#" id="editBlogTitle">edit title</a>
                     <a href="#" id="editOwnerName">edit name</a>
@@ -717,15 +727,15 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 </div>
             </span>
             ` : `
-            <span class="gear-wrapper" style="margin:0;padding:0;">
-                <button type="button" class="gear-btn" id="gearBtn" aria-label="Menu" style="margin-top:0;">
+            <span class="menu-wrapper" style="margin:0;padding:0;">
+                <button type="button" class="menu-btn" id="menuBtn" aria-label="Menu" title="Menu" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="3" y1="6" x2="21" y2="6"></line>
                         <line x1="3" y1="12" x2="21" y2="12"></line>
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <div class="gear-dropdown" id="gearDropdown">
+                <div class="menu-dropdown" id="menuDropdown">
                     <a href="/archive">post archive</a>
                     <a href="#" id="themeToggle">dark</a>
                     <a href="/feed/posts">rss: posts</a>
@@ -735,7 +745,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 </div>
             </span>
             `}
-            <button type="button" class="hamburger-btn" id="hamburgerBtn" aria-label="Menu">
+            <button type="button" class="hamburger-btn" id="hamburgerBtn" aria-label="Menu" title="Menu">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="3" y1="6" x2="21" y2="6"></line>
                     <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -854,17 +864,17 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             openSearch();
         }
 
-        // Gear dropdown
-        var gearBtn = document.getElementById('gearBtn');
-        var gearDropdown = document.getElementById('gearDropdown');
-        if (gearBtn) {
-            gearBtn.addEventListener('click', function(e) {
+        // Menu dropdown
+        var menuBtn = document.getElementById('menuBtn');
+        var menuDropdown = document.getElementById('menuDropdown');
+        if (menuBtn) {
+            menuBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                gearDropdown.classList.toggle('open');
+                menuDropdown.classList.toggle('open');
             });
             document.addEventListener('click', function(e) {
-                if (gearDropdown && !gearDropdown.contains(e.target) && e.target !== gearBtn) {
-                    gearDropdown.classList.remove('open');
+                if (menuDropdown && !menuDropdown.contains(e.target) && e.target !== menuBtn) {
+                    menuDropdown.classList.remove('open');
                 }
             });
         }
@@ -884,7 +894,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     toggleBtn.textContent = 'light';
                     localStorage.setItem('theme', 'dark');
                 }
-                if (gearDropdown) gearDropdown.classList.remove('open');
+                if (menuDropdown) menuDropdown.classList.remove('open');
             });
             // Set initial text
             if (document.documentElement.getAttribute('data-theme') === 'dark') toggleBtn.textContent = 'light';
@@ -936,11 +946,21 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 setTimeout(function() {
                     if (e.defaultPrevented) return;
 
-                    // Spin the icon
+                    // Roll the dice
                     link.classList.add('loading');
                     link.style.pointerEvents = 'none';
                 }, 0);
             });
+        });
+
+        // Reset random button state when returning via browser back (bfcache)
+        window.addEventListener('pageshow', function(e) {
+            if (e.persisted) {
+                document.querySelectorAll('a[href="/random"]').forEach(function(link) {
+                    link.classList.remove('loading');
+                    link.style.pointerEvents = '';
+                });
+            }
         });
 
         // Publishing button feedback
@@ -1114,7 +1134,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         if (editBlogTitle) {
             editBlogTitle.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (gearDropdown) gearDropdown.classList.remove('open');
+                if (menuDropdown) menuDropdown.classList.remove('open');
                 doEditTitle();
             });
         }
@@ -1154,7 +1174,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         if (editCopyright) {
             editCopyright.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (gearDropdown) gearDropdown.classList.remove('open');
+                if (menuDropdown) menuDropdown.classList.remove('open');
                 doEditCopyright();
             });
         }
@@ -1192,7 +1212,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         if (editOwnerName) {
             editOwnerName.addEventListener('click', function(e) {
                 e.preventDefault();
-                if (gearDropdown) gearDropdown.classList.remove('open');
+                if (menuDropdown) menuDropdown.classList.remove('open');
                 doEditOwnerName();
             });
         }

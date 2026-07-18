@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.3.0**
+**Version 3.3.1**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -266,6 +266,19 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.3.1
+
+#### Changed
+
+- **Random icon replaced with dice** — the shuffle icon is now a 5-face dice SVG, displayed at a -15° tilt by default
+- **Dice roll animation** — clicking random triggers a bounce + rotate animation (the dice tumbles and bounces) instead of a simple spin
+- **Tooltips on header icons** — hover text added to dice ("Random post"), articles ("Articles"), search ("Search"), and menu ("Menu") buttons
+- **Renamed gear to menu in codebase** — all `gear-btn`, `gear-wrapper`, `gear-dropdown`, `gearBtn`, `gearDropdown` references renamed to `menu-btn`, `menu-wrapper`, `menu-dropdown`, `menuBtn`, `menuDropdown` to match the actual hamburger icon
+
+#### Fixed
+
+- **Dice animation persisting on subsequent clicks** — added `pageshow` listener to reset the loading state when the browser restores the page from bfcache (back/forward navigation)
 
 ### Version 3.3.0
 
