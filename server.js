@@ -556,6 +556,12 @@ const sharedStyles = `
     .search-bar-overlay .search-bar-close { background: none !important; border: none; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; opacity: 0.6; flex-shrink: 0; }
     .search-bar-overlay .search-bar-close:hover { opacity: 1; }
     [data-theme="dark"] .search-bar-overlay .search-bar-close { background: none !important; color: var(--text-muted); }
+    .desktop-random-btn { color: var(--text-muted); opacity: 0.6; line-height: 1; display: flex; align-items: center; }
+    .desktop-random-btn:hover { opacity: 1; }
+    .desktop-random-btn svg { width: 16px; height: 16px; display: block; }
+    .desktop-random-btn.loading svg {
+    animation: spin 1s linear infinite;
+}
     .mobile-random-btn { display: none; color: var(--text-muted); opacity: 0.6; line-height: 1; }
     .mobile-random-btn:hover { opacity: 1; }
     .mobile-random-btn svg { width: 16px; height: 16px; display: block; }
@@ -686,7 +692,15 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         </div>
         <div class="header-controls">
         <div class="desktop-nav">
-            <a href="/random" class="random-link">random</a>
+            <a href="/random" class="desktop-random-btn" aria-label="Random">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 3 21 3 21 8"></polyline>
+                    <line x1="4" y1="20" x2="21" y2="3"></line>
+                    <polyline points="21 16 21 21 16 21"></polyline>
+                    <line x1="15" y1="15" x2="21" y2="21"></line>
+                    <line x1="4" y1="4" x2="9" y2="9"></line>
+                </svg>
+            </a>
             <span class="header-separator">&middot;</span>
             <a href="/articles" class="random-link">articles</a>
         </div>
@@ -954,15 +968,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 setTimeout(function() {
                     if (e.defaultPrevented) return;
 
-                    // Mobile icon version
-                    if (link.classList.contains('mobile-random-btn')) {
-                        link.classList.add('loading');
-                        link.style.pointerEvents = 'none';
-                        return;
-                    }
-
-                    // Desktop text version
-                    link.textContent = 'randomizing...';
+                    // Both desktop and mobile icon versions: spin the SVG
+                    link.classList.add('loading');
                     link.style.pointerEvents = 'none';
                 }, 0);
             });
