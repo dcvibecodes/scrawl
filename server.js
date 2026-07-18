@@ -450,8 +450,8 @@ const sharedStyles = `
         --separator-color: #eeeeee;
     }
     [data-theme="dark"] {
-        --bg-body: #0f0f0f;
-        --bg-card: #0f0f0f;
+        --bg-body: #000000;
+        --bg-card: #000000;
         --text-main: #e5e5e5;
         --text-muted: #999999;
         --separator-color: #1a1a1a;
@@ -460,7 +460,7 @@ const sharedStyles = `
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 580px; margin: 20px auto; padding: 0 16px; background: var(--bg-body); color: var(--text-main); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
     img, textarea, input, select, button { max-width: 100%; }
     header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 30px; padding-bottom: 10px; position: relative; min-height: 44px; }
-    .header-controls { display: flex; align-items: center; gap: 10px; line-height: 1; }
+    .header-controls { display: flex; align-items: center; gap: 14px; line-height: 1; }
     .container { width: 100%; max-width: 100%; margin-top: 20px; }
     .main-content { width: 100%; max-width: 100%; }
     form, .edit-container { background: var(--bg-card); padding: 0; margin-bottom: 30px; max-width: 100%; }
@@ -509,8 +509,12 @@ const sharedStyles = `
     .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
     .delete-btn:hover { color: #ff7a7a; }
     [data-theme="dark"] .delete-btn { background: none !important; color: #d96b6b; }
-    .random-link { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; transition: color 0.2s ease; }
-    .random-link:hover { color: var(--text-main); }
+    .nav-icon-btn { color: var(--text-muted); opacity: 0.6; line-height: 1; text-decoration: none; transition: opacity 0.2s ease; }
+    .nav-icon-btn:hover { opacity: 1; }
+    .nav-icon-btn svg { width: 16px; height: 16px; display: block; }
+    .nav-icon-btn.loading svg { animation: spin 1s linear infinite; }
+    .nav-text-btn { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; opacity: 0.7; transition: color 0.2s ease, opacity 0.2s ease; }
+    .nav-text-btn:hover { color: var(--text-main); opacity: 1; }
     .back-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
     .back-link:hover { color: var(--text-main); }
     .no-entries { text-align: center; color: var(--text-muted); margin-top: 20px; }
@@ -555,20 +559,7 @@ const sharedStyles = `
     .search-bar-overlay .search-bar-close { background: none !important; border: none; padding: 0; margin: 0; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; line-height: 1; opacity: 0.6; flex-shrink: 0; }
     .search-bar-overlay .search-bar-close:hover { opacity: 1; }
     [data-theme="dark"] .search-bar-overlay .search-bar-close { background: none !important; color: var(--text-muted); }
-    .desktop-random-btn { color: var(--text-muted); opacity: 0.6; line-height: 1; display: flex; align-items: center; padding: 4px; }
-    .desktop-random-btn:hover { opacity: 1; }
-    .desktop-random-btn svg { width: 16px; height: 16px; display: block; }
-    .desktop-random-btn.loading svg {
-    animation: spin 1s linear infinite;
-}
-    .mobile-random-btn { display: none; color: var(--text-muted); opacity: 0.6; line-height: 1; }
-    .mobile-random-btn:hover { opacity: 1; }
-    .mobile-random-btn svg { width: 16px; height: 16px; display: block; }
-    .mobile-random-btn.loading svg {
-    animation: spin 1s linear infinite;
-}
-    .mobile-articles-btn { display: none; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; font-weight: normal; opacity: 0.7; transition: color 0.2s ease, opacity 0.2s ease; }
-    .mobile-articles-btn:hover { color: var(--text-main); opacity: 1; }
+
 
     @keyframes spin {
         from { transform: rotate(0deg); }
@@ -615,12 +606,8 @@ const sharedStyles = `
     .setup-container h2 { font-size: 1rem; margin-bottom: 20px; font-weight: normal; color: var(--text-muted); }
     .setup-container p { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
     .password-requirements { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; opacity: 0.7; }
-    .desktop-nav { display: flex; align-items: center; gap: 10px; }
     @media (max-width: 500px) {
-        .desktop-nav { display: none; }
         .hamburger-btn { display: block; }
-        .mobile-random-btn { display: block; }
-        .mobile-articles-btn { display: block; }
         .gear-wrapper { display: none; }
     }
 `;
@@ -688,8 +675,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             </h1>
         </div>
         <div class="header-controls">
-        <div class="desktop-nav">
-            <a href="/random" class="desktop-random-btn" aria-label="Random">
+            <a href="/random" class="nav-icon-btn random-btn" aria-label="Random">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="16 3 21 3 21 8"></polyline>
                     <line x1="4" y1="20" x2="21" y2="3"></line>
@@ -698,18 +684,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <line x1="4" y1="4" x2="9" y2="9"></line>
                 </svg>
             </a>
-            <a href="/articles" class="random-link">articles</a>
-        </div>
-            <a href="/random" class="mobile-random-btn" aria-label="Random">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="16 3 21 3 21 8"></polyline>
-                    <line x1="4" y1="20" x2="21" y2="3"></line>
-                    <polyline points="21 16 21 21 16 21"></polyline>
-                    <line x1="15" y1="15" x2="21" y2="21"></line>
-                    <line x1="4" y1="4" x2="9" y2="9"></line>
-                </svg>
-            </a>
-            <a href="/articles" class="mobile-articles-btn">articles</a>
+            <a href="/articles" class="nav-text-btn">articles</a>
             <span class="inline-search" id="headerInlineSearch" style="margin:0;padding:0;">
                 <button type="button" class="search-icon-btn" id="searchOpenBtn" aria-label="Search" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -961,7 +936,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 setTimeout(function() {
                     if (e.defaultPrevented) return;
 
-                    // Both desktop and mobile icon versions: spin the SVG
+                    // Spin the icon
                     link.classList.add('loading');
                     link.style.pointerEvents = 'none';
                 }, 0);

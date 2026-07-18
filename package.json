@@ -1,6 +1,6 @@
 {
   "name": "scrawl",
-  "version": "3.2.4",
+  "version": "3.3.0",
   "description": "A personal publishing space for quick posts and long-form articles",
   "main": "index.js",
   "scripts": {
@@ -15,7 +15,6 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "express-rate-limit": "^7.5.1",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1"
   },

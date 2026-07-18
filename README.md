@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.2.4**
+**Version 3.3.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -76,10 +76,10 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 
 ### Navigation
 
-- **random** — opens a random post
+- **random** (shuffle icon) — opens a random post; icon spins while loading
 - **articles** — visible in header on both desktop and mobile
 - **search** — full-text search icon
-- **menu** — hamburger icon with: post archive, settings (title, name, footer), comments, theme, RSS, contact, login/logout
+- **menu** — hamburger icon (mobile) or gear icon (desktop) with: post archive, settings (title, name, footer), comments, theme, RSS, contact, login/logout
 
 ### Contact Page
 
@@ -214,6 +214,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | XSS (articles) | HTML sanitization (only b, i, u, s, strike, code, a, br, hr, h2, h3, ol, ul, li, blockquote allowed) |
 | XSS (comments) | HTML escaping on all comment content |
 | Comment moderation | All reader comments require owner approval |
+| Spam protection | Honeypot field + time-based token + per-IP rate limiting |
 
 ### Password Reset
 
@@ -265,6 +266,30 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.3.0
+
+#### Added
+
+- **Spam protection** — contact form and article comments (including replies) are now protected with a three-layer anti-spam system:
+  - Honeypot field (invisible to users, catches bots that fill all fields)
+  - Time-based token (rejects submissions made less than 3 seconds after page load)
+  - Rate limiting (3 contact messages and 5 comments per hour per IP)
+- All spam checks are silently bypassed for the owner — normal owner commenting is unaffected
+- Honeypot-triggered submissions fake a success response so bots think they succeeded
+- Rate limit store auto-cleans expired entries every 10 minutes
+
+#### Changed
+
+- **Unified header navigation** — desktop and mobile now show identical menu items (random icon, articles link, search icon) with consistent 14px spacing; no more text-only "random" link or dot separators on desktop
+- **Random link feedback** — both desktop and mobile now spin the shuffle icon on click (removed "randomizing..." text feedback)
+- **Dark theme is pitch black** — background changed from `#0f0f0f` to `#000000` (pure black) for true OLED dark mode
+
+#### Removed
+
+- Dot (·) separators between header menu items
+- Separate desktop-only and mobile-only navigation elements (unified into one set)
+- `express-rate-limit` dependency (rate limiting is now built-in with no external packages)
 
 ### Version 3.2.4
 
