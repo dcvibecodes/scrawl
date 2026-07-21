@@ -945,7 +945,6 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 e.preventDefault();
                 link.classList.add('loading');
                 link.style.pointerEvents = 'none';
-                // Small delay so the dice roll animation renders before navigating
                 setTimeout(function() {
                     window.location.href = link.href;
                 }, 100);
