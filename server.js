@@ -965,6 +965,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         var addForms = document.querySelectorAll('form[action="/add"]');
         addForms.forEach(function(form) {
             form.addEventListener('submit', function() {
+                postNavigating = true;
                 var btn = form.querySelector('button[type="submit"]');
                 if (btn) { btn.textContent = 'Posting...'; btn.disabled = true; }
             });
