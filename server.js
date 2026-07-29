@@ -127,9 +127,13 @@ function isAuthenticated(req) {
     const [timestamp, hmac] = parts;
     const age = Date.now() - parseInt(timestamp, 10);
     if (isNaN(age) || age > SESSION_MAX_AGE || age < 0) return false;
-    // Verify HMAC
+    // Verify HMAC (guard length first: timingSafeEqual throws on mismatched
+    // lengths, which would 500 every page for anyone with a corrupted cookie)
     const expected = crypto.createHmac('sha256', getSessionSecret()).update(timestamp).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expected, 'hex'));
+    const received = Buffer.from(hmac, 'hex');
+    const expectedBuf = Buffer.from(expected, 'hex');
+    if (received.length !== expectedBuf.length) return false;
+    return crypto.timingSafeEqual(received, expectedBuf);
 }
 
 function createSessionToken() {
@@ -139,6 +143,8 @@ function createSessionToken() {
 }
 
 // --- Middleware ---
+// Trust the local nginx proxy so rate limiting sees each visitor's real IP
+app.set('trust proxy', '127.0.0.1');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(getSessionSecret()));
@@ -674,7 +680,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
-    <title>${title}</title>${metaTags}
+    <title>${escapeHtml(title)}</title>${metaTags}
     <link rel="manifest" href="/manifest.json">
     <link rel="alternate" type="application/json" href="/api/posts" title="All posts (JSON)">
     <link rel="alternate" type="application/rss+xml" href="/feed/posts" title="Posts RSS Feed">
@@ -2080,7 +2086,7 @@ app.get('/edit/:id', requireOwner, async (req, res) => {
                         name="content"
                         required
                         oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
-                    >${entry.content}</textarea>
+                    >${escapeHtml(entry.content)}</textarea>
                     <script>
                     document.addEventListener('DOMContentLoaded', function() {
                         var el = document.getElementById('edit-box');
@@ -3423,7 +3429,7 @@ app.get('/articles/:id', async (req, res) => {
             function shareArticle() {
                 if (navigator.share) {
                     navigator.share({
-                        title: ${JSON.stringify(article.title)},
+                        title: ${JSON.stringify(article.title).replace(/</g, '\\u003c')},
                         url: window.location.href
                     }).catch(function() {});
                 } else {
