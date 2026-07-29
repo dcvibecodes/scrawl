@@ -257,6 +257,10 @@ async function initDatabase() {
     )
 `);
 
+// Rebuild the article search index on every boot. Cheap for a personal
+// blog, and guarantees the index always matches the stripHtml() rules.
+await db.run('DELETE FROM articles_fts');
+
 // Backfill: index any entries missing from FTS
 const missing = await db.all(`
     SELECT e.id, e.content
@@ -294,7 +298,7 @@ if (missingArticles.length > 0) {
     `);
 
     for (const row of missingArticles) {
-        await stmtA.run(row.id, row.title, row.content);
+        await stmtA.run(row.id, row.title, stripHtml(row.content));
     }
 
     await stmtA.finalize();
@@ -379,9 +383,21 @@ function sanitizeArticleHtml(html) {
     return result;
 }
 
-// Strip HTML tags for FTS plain text indexing
+// Strip HTML tags for FTS plain text indexing.
+// Block-level tags become spaces first so words on either side don't collide.
 function stripHtml(html) {
-    return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    return html
+        .replace(/<\/(p|h[1-6]|li|blockquote|div|ol|ul)>/gi, ' ')
+        .replace(/<br\s*\/?>/gi, ' ')
+        .replace(/<hr\s*\/?>/gi, ' ')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function formatDate(timestamp) {
@@ -504,6 +520,7 @@ const sharedStyles = `
         margin-bottom: 12px;
     }
     .expandable-content { cursor: pointer; }
+    .search-snippet { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: -8px; }
     .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
     .edit-link:hover { color: var(--text-main); }
     .delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
@@ -687,11 +704,13 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             <a href="/random" class="nav-icon-btn random-btn" aria-label="Random" title="Random post">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="3"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
-                    <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
-                    <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
-                    <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
-                    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle class="die-dot" data-pos="tl" cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle class="die-dot" data-pos="tr" cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle class="die-dot" data-pos="l" cx="8.5" cy="12" r="1.2" fill="currentColor" stroke="none" style="display:none"></circle>
+                    <circle class="die-dot" data-pos="c" cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle class="die-dot" data-pos="r" cx="15.5" cy="12" r="1.2" fill="currentColor" stroke="none" style="display:none"></circle>
+                    <circle class="die-dot" data-pos="bl" cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
+                    <circle class="die-dot" data-pos="br" cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
                 </svg>
             </a>
             <a href="/articles" class="nav-text-btn" title="Articles">articles</a>
@@ -939,16 +958,54 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             resize();
         };
 
-        // Random link feedback
+        // Random link feedback — cycle through random dice faces while rolling
+        var DICE_FACES = {
+            1: ['c'],
+            2: ['tl', 'br'],
+            3: ['tl', 'c', 'br'],
+            4: ['tl', 'tr', 'bl', 'br'],
+            5: ['tl', 'tr', 'c', 'bl', 'br'],
+            6: ['tl', 'tr', 'l', 'r', 'bl', 'br']
+        };
+        function setDiceFace(link, face) {
+            link.querySelectorAll('.die-dot').forEach(function(dot) {
+                dot.style.display = DICE_FACES[face].indexOf(dot.getAttribute('data-pos')) !== -1 ? '' : 'none';
+            });
+        }
+        function getStoredDiceFace() {
+            var f = parseInt(localStorage.getItem('diceFace') || '5', 10);
+            return (f >= 1 && f <= 6) ? f : 5;
+        }
         document.querySelectorAll('a[href="/random"]').forEach(function(link) {
+            var rollInterval = null;
+            // A real die stays where it lands — show the last rolled face
+            setDiceFace(link, getStoredDiceFace());
             link.addEventListener('click', function(e) {
                 e.preventDefault();
                 link.classList.add('loading');
                 link.style.pointerEvents = 'none';
-                setTimeout(function() {
-                    window.location.href = link.href;
+                var startFace = getStoredDiceFace();
+                var lastFace = startFace;
+                rollInterval = setInterval(function() {
+                    var face;
+                    do { face = Math.floor(Math.random() * 6) + 1; } while (face === lastFace);
+                    lastFace = face;
+                    setDiceFace(link, face);
                 }, 100);
+                setTimeout(function() {
+                    // Guarantee the roll ends on a different face than it started
+                    if (lastFace === startFace) {
+                        do { lastFace = Math.floor(Math.random() * 6) + 1; } while (lastFace === startFace);
+                        setDiceFace(link, lastFace);
+                    }
+                    localStorage.setItem('diceFace', lastFace);
+                    window.location.href = link.href;
+                }, 550);
             });
+            link.resetDice = function() {
+                if (rollInterval) { clearInterval(rollInterval); rollInterval = null; }
+                setDiceFace(link, getStoredDiceFace());
+            };
         });
 
         // Reset random button state when returning via browser back (bfcache)
@@ -957,6 +1014,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 document.querySelectorAll('a[href="/random"]').forEach(function(link) {
                     link.classList.remove('loading');
                     link.style.pointerEvents = '';
+                    if (link.resetDice) link.resetDice();
                 });
             }
         });
@@ -1458,9 +1516,9 @@ const offset = parseInt(req.query.offset || '0', 10);
                     ORDER BY entries_fts.rank
                 `, [formattedQuery]);
 
-                // Also search articles
+                // Also search articles (with a content excerpt around the match)
                 articleResults = await db.all(`
-                    SELECT articles.*
+                    SELECT articles.*, snippet(articles_fts, 2, '', '', '…', 32) AS snippet
                     FROM articles
                     JOIN articles_fts ON articles.id = articles_fts.id
                     WHERE articles_fts MATCH ?
@@ -1518,12 +1576,18 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
             ${searchQuery && articleResults.length > 0 ? `
                 <div style="margin-bottom:25px;">
                     <h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Articles</h3>
-                    ${articleResults.map(a => `
+                    ${articleResults.map(a => {
+                        // Show the excerpt around the match; if the match is only in the title,
+                        // snippet() returns '' so fall back to the start of the article
+                        const excerpt = (a.snippet || stripHtml(a.content).slice(0, 160)).trim();
+                        return `
                         <div class="entry">
                             <div class="date">${formatDate(a.timestamp)}</div>
                             <div class="content"><a href="/articles/${a.id}" style="color:var(--text-main);text-decoration:none;font-weight:600;">${escapeHtml(a.title)}</a></div>
+                            ${excerpt ? `<div class="search-snippet">${escapeHtml(excerpt)}</div>` : ''}
                         </div>
-                    `).join('')}
+                    `;
+                    }).join('')}
                 </div>
                 ${entries.length > 0 ? '<h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Posts</h3>' : ''}
             ` : ''}
