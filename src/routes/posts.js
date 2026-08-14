@@ -5,6 +5,7 @@ const { getDb } = require('../db');
 const { isOwnerSetup, getBlogTitle, getOwnerName } = require('../config');
 const { requireOwner } = require('../middleware/auth');
 const { escapeHtml, stripHtml, formatDate, generateId } = require('../utils/html');
+const { ENTRY_AVATAR } = require('../utils/avatar');
 
 const PAGE_SIZE = 50;
 
@@ -34,6 +35,7 @@ function renderEntries(entries, isOwner) {
 
         return `
             <div class="entry">
+                ${ENTRY_AVATAR}
                 <div class="date" title="${fullDate}">${dateStr}</div>
                 <div class="content${expandableClass}"
                 data-expanded="false"
@@ -283,6 +285,7 @@ router.get('/post/:id', async (req, res) => {
 
         const bodyContent = `
             <div class="entry" style="border-bottom:none;">
+                ${ENTRY_AVATAR}
                 <div class="date" title="${fullDate}">${dateStr}</div>
                 <div class="content">${safeContent}</div>
                 <div class="actions">

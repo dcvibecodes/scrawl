@@ -4,6 +4,7 @@ const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
 const { getBlogTitle, getOwnerName } = require('../config');
 const { escapeHtml, sanitizeArticleHtml, stripHtml, formatDate, generateId } = require('../utils/html');
+const { PIXEL_AVATAR_SVG } = require('../utils/avatar');
 const { requireOwner } = require('../middleware/auth');
 const { generateSpamToken } = require('../middleware/rateLimit');
 
@@ -223,6 +224,7 @@ router.get('/articles/:id', async (req, res) => {
                         ${connector}
                         <div class="comment-bubble">
                             <div class="comment-header">
+                                <span class="comment-avatar">${PIXEL_AVATAR_SVG}</span>
                                 <span class="comment-author">${escapeHtml(displayName)}</span>
                                 ${pendingBadge}
                                 <span class="comment-date">${formatDate(comment.timestamp)}</span>
