@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.3.1**
+**Version 3.5.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -266,6 +266,18 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.5.0
+
+#### Added
+
+- **Pixelated display picture (DP) on posts** — every post now shows a circular, monochrome, gender-neutral pixel-art figure to its left; the post date and first lines of text wrap around it
+- **Pixelated DP on comments** — each article comment shows a smaller (15px) version of the same pixel figure next to the commenter's name
+- The DP circle blends into the page background in both themes, with the figure rendered black in light theme and white in dark theme (via a single SVG using `currentColor`)
+
+#### Fixed
+
+- **Stale service worker cache** — the cache name was hard-coded and old caches were never deleted, so updated `styles.css` could still be served from cache after a deploy (causing the DP to render full-width). The cache version is now bumped and an `activate` handler deletes all previous caches.
 
 ### Version 3.3.1
 

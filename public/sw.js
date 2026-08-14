@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scrawl-v3';
+const CACHE_NAME = 'scrawl-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -10,6 +10,18 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
+    })
+  );
+});
+
+// Delete any old caches so stale assets (e.g. an outdated styles.css) are
+// never served again. Without this, caches.match() can still find old files.
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
     })
   );
 });
