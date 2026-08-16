@@ -32,9 +32,10 @@ test('sanitizeArticleHtml keeps allowed formatting tags', () => {
     assert.ok(result.includes('<code>code</code>'));
 });
 
-test('sanitizeArticleHtml keeps links with href and adds target/rel', () => {
+test('sanitizeArticleHtml keeps links with href (target added client-side)', () => {
     const result = sanitizeArticleHtml('<p><a href="https://example.com">link</a></p>');
-    assert.ok(result.includes('<a href="https://example.com" target="_blank" rel="noopener">link</a>'));
+    assert.ok(result.includes('<a href="https://example.com">link</a>'));
+    assert.ok(!result.includes('target="_blank"'));
 });
 
 test('sanitizeArticleHtml removes attributes from non-anchor tags', () => {

@@ -16,9 +16,9 @@ function sanitizeArticleHtml(html) {
         .replace(/<(?!\/?(b|i|u|s|strike|code|a|br|p|h[23]|ol|ul|li|blockquote|hr)\b)[^>]*>/gi, '')
         // Remove all attributes from allowed tags (except <a>)
         .replace(/<(b|i|u|s|strike|code|br|p|h[23]|ol|ul|li|blockquote|hr)\s[^>]*>/gi, '<$1>')
-        // For <a>, keep only href attribute
-        .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
-        .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
+        // For <a>, keep only href attribute (target="_blank" is added client-side for external links only)
+        .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1">')
+        .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1">')
         // Remove any remaining attributes on <a> that didn't match
         .replace(/<a(?!\s+href)[^>]*>/gi, '<a>')
         // Clean up empty paragraphs (but keep <p><br></p> as intentional spacing)

@@ -170,6 +170,19 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     </div>
     ${copyrightText ? '<footer class="site-footer">' + copyrightText + '</footer>' : ''}
     <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">&uarr;</a>
+    <script>
+    // Open external links in a new tab; internal links navigate in-place (avoids PWA white flash)
+    document.addEventListener('DOMContentLoaded', function() {
+        var links = document.querySelectorAll('.article-body a');
+        for (var i = 0; i < links.length; i++) {
+            var link = links[i];
+            if (link.hostname && link.hostname !== window.location.hostname) {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener');
+            }
+        }
+    });
+    </script>
     <script src="/app.js"></script>
 </body>
 </html>

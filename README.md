@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.2.0**
+**Version 4.3.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,18 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.3.0
+
+#### Changed
+
+- **Internal links navigate in-place** — links to your own articles/posts (same domain) no longer open in a new tab. This fixes the white flash when navigating between pages in the PWA (iOS standalone webview). External links (different domain) still open in a new tab.
+- **Smart link detection is client-side** — the app compares each link's hostname against the current domain at runtime, so it automatically adapts if you change the domain the app is hosted on. No hardcoded domain names.
+- **HTML sanitizer no longer adds `target="_blank"`** — the server stores clean links; the browser adds `target="_blank"` only to external links on page load.
+
+#### Fixed
+
+- **PWA white flash on navigation** — clicking an internal hyperlink in the PWA no longer flashes white. Previously, `target="_blank"` on all links caused iOS PWAs to open a brand-new webview (which starts with a white background) instead of navigating in-place.
 
 ### Version 4.2.0
 
