@@ -2,6 +2,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const request = require('supertest');
 const { app, setupTestDb, cleanupTestData, makeOldSpamToken } = require('./helpers');
+const { getSettings, saveSettings } = require('../src/config');
 
 const A = String.fromCharCode(38); // '&'
 
@@ -285,6 +286,30 @@ test('GET /?q= searches posts', async () => {
     const res = await request(app).get('/?q=Hello');
     assert.strictEqual(res.status, 200);
     assert.ok(res.text.includes('Hello world test post'));
+});
+
+test('GET /?q= searches posts even when landing page is custom', async () => {
+    // Set a custom landing page
+    const settings = getSettings();
+    settings.landingPage = 'custom';
+    settings.customLandingContent = '<p>My custom landing content</p>';
+    saveSettings(settings);
+
+    // Normal visit shows the custom landing page
+    const homeRes = await request(app).get('/');
+    assert.strictEqual(homeRes.status, 200);
+    assert.ok(homeRes.text.includes('My custom landing content'));
+
+    // Search still shows results, not the landing page
+    const searchRes = await request(app).get('/?q=Hello');
+    assert.strictEqual(searchRes.status, 200);
+    assert.ok(searchRes.text.includes('Hello world test post'));
+    assert.ok(!searchRes.text.includes('My custom landing content'));
+
+    // Restore default settings
+    settings.landingPage = 'posts';
+    settings.customLandingContent = '';
+    saveSettings(settings);
 });
 
 test('GET /random redirects to a post', async () => {

@@ -244,6 +244,13 @@ async function renderPostsFeed(req, res) {
 // Home page — renders the configured landing page
 router.get('/', async (req, res) => {
     if (!isOwnerSetup()) return res.redirect('/setup');
+
+    // A search query always renders the posts feed (which handles search),
+    // regardless of the configured landing page.
+    if (req.query.q) {
+        return renderPostsFeed(req, res);
+    }
+
     const settings = getSettings();
 
     if (settings.landingPage === 'articles' && settings.articlesEnabled) {
