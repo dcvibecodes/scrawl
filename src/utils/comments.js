@@ -54,7 +54,7 @@ function renderCommentsSection({ targetId, targetType, comments, isOwner, ownerN
         <div class="comments-section" style="margin-top:40px;">
             ${hasComments ? '' : `
             <div class="no-comments-prompt" id="noCommentsPrompt">
-                No comments yet. <a href="#" onclick="showCommentForm();return false;">Be the first to comment</a>
+                No comments yet. <a href="#" onclick="showCommentForm();return false;">Be the first to comment.</a>
             </div>
             `}
             <div id="discussionArea" style="${hasComments ? '' : 'display:none;'}">

@@ -257,7 +257,7 @@ font-weight: normal;
 [data-theme="dark"] .share-btn { background: none !important; color: var(--text-muted); }
 
 /* ===== Comment styles ===== */
-.comments-section { border-top: 1px solid var(--separator-color); padding-top: 20px; }
+.comments-section { padding-top: 20px; }
 .no-comments-prompt {
     font-size: 0.85rem;
     color: var(--text-muted);
