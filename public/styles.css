@@ -244,6 +244,7 @@ font-weight: normal;
 [data-theme="dark"] .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
 [data-theme="dark"] .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
 .article-content-editor { min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: inherit; font-size: 1rem; line-height: 1.6; color: var(--text-main); }
+.html-source-editor { display: none; min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 0.85rem; line-height: 1.6; color: var(--text-main); background: var(--bg-body); resize: vertical; }
 .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; pointer-events: none; }
 .article-content-editor p { margin: 0 0 1em 0; }
 .article-content-editor p:last-child { margin-bottom: 0; }

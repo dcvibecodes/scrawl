@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.1.0**
+**Version 4.2.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,13 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.2.0
+
+#### Added
+
+- **HTML source mode in the article and landing-page composers** — a new `</>` button in the editor toolbar toggles between the visual contenteditable editor and a raw HTML `<textarea>`. Users can paste or edit HTML directly as source.
+- **Automatic sanitization** — any HTML pasted in source mode is passed through the existing sanitizer on save. Disallowed tags (images, scripts, iframes, etc.) are stripped, while allowed formatting (headings, lists, bold, italic, links, etc.) is preserved.
 
 ### Version 4.1.0
 

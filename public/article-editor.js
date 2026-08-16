@@ -5,6 +5,9 @@
     var editorMode = 'new';
     var editorArticleId = null;
     var editorIsDraft = false;
+    var htmlMode = false;
+    var htmlTextarea = null;
+    var htmlBtn = null;
 
     document.execCommand('defaultParagraphSeparator', false, 'p');
 
@@ -323,9 +326,54 @@
         });
     }
 
+    // Toggle between visual (contenteditable) and HTML source mode
+    window.toggleHtmlMode = function() {
+        var editor = getEditor();
+        if (!htmlTextarea) {
+            htmlTextarea = document.createElement('textarea');
+            htmlTextarea.className = 'article-content-editor html-source-editor';
+            htmlTextarea.placeholder = 'Paste or edit HTML here...';
+            editor.parentNode.insertBefore(htmlTextarea, editor.nextSibling);
+        }
+        if (!htmlMode) {
+            // Switch to HTML mode: copy current content into textarea
+            htmlTextarea.value = editor.innerHTML;
+            editor.style.display = 'none';
+            htmlTextarea.style.display = 'block';
+            htmlMode = true;
+            if (htmlBtn) htmlBtn.classList.add('active');
+            htmlTextarea.focus();
+        } else {
+            // Switch back to visual mode: put textarea content back into editor
+            editor.innerHTML = htmlTextarea.value;
+            htmlTextarea.style.display = 'none';
+            editor.style.display = '';
+            htmlMode = false;
+            if (htmlBtn) htmlBtn.classList.remove('active');
+            editor.focus();
+        }
+    };
+
+    function getContent() {
+        if (htmlMode && htmlTextarea) {
+            return htmlTextarea.value.trim();
+        }
+        return getEditor().innerHTML.trim();
+    }
+
+    function getTextContent() {
+        if (htmlMode && htmlTextarea) {
+            // Strip tags for the "content required" check
+            var div = document.createElement('div');
+            div.innerHTML = htmlTextarea.value;
+            return div.textContent.trim();
+        }
+        return getEditor().textContent.trim();
+    }
+
     window.confirmCancel = function() {
         var title = document.getElementById('article-title').value.trim();
-        var content = getEditor().textContent.trim();
+        var content = getTextContent();
         if (title || content) {
             return confirm('You have unsaved changes. Discard?');
         }
@@ -335,7 +383,7 @@
     function hasUnsavedChanges() {
         if (articleSaved) return false;
         var title = document.getElementById('article-title').value.trim();
-        var content = getEditor().textContent.trim();
+        var content = getTextContent();
         return !!(title || content);
     }
 
@@ -378,10 +426,10 @@
     // New article: POST to /articles
     window.submitArticle = function(status) {
         var title = document.getElementById('article-title').value.trim();
-        var content = getEditor().innerHTML.trim();
+        var content = getContent();
         var dateVal = document.getElementById('article-date').value;
         if (!title) { alert('Title is required.'); return; }
-        if (!getEditor().textContent.trim()) { alert('Content is required.'); return; }
+        if (!getTextContent()) { alert('Content is required.'); return; }
         articleSaved = true;
         var btn = event.target;
         btn.textContent = status === 'draft' ? 'Saving...' : 'Publishing...';
@@ -404,10 +452,10 @@
     // Edit article: PUT to /articles/:id
     window.updateArticle = function(status) {
         var title = document.getElementById('article-title').value.trim();
-        var content = getEditor().innerHTML.trim();
+        var content = getContent();
         var dateVal = document.getElementById('article-date').value;
         if (!title) { alert('Title is required.'); return; }
-        if (!getEditor().textContent.trim()) { alert('Content is required.'); return; }
+        if (!getTextContent()) { alert('Content is required.'); return; }
         articleSaved = true;
         var btn = event.target;
         var publishLabel = editorIsDraft ? 'Publishing...' : 'Updating...';
