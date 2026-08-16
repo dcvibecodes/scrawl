@@ -263,8 +263,8 @@ font-weight: normal;
 .article-body ul, .article-body ol, .article-content-editor ul, .article-content-editor ol { margin: 0.4em 0; padding-left: 1.5em; }
 .article-body li, .article-content-editor li { margin-bottom: 0.2em; }
 .article-body blockquote, .article-content-editor blockquote { margin: 0.5em 0; padding: 0.4em 0 0.4em 1em; border-left: 3px solid var(--separator-color); color: var(--text-muted); font-style: italic; }
-.article-body a { color: var(--text-main); text-decoration: underline; }
-.article-body a:hover { opacity: 0.7; }
+.article-body a { color: var(--text-muted); text-decoration: none; }
+.article-body a:hover { color: var(--text-main); }
 .article-body code, .article-content-editor code { font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 0.88em; background: var(--separator-color); padding: 2px 5px; border-radius: 3px; }
 .article-body hr, .article-content-editor hr { border: none; border-top: 1px solid var(--separator-color); margin: 2em 0; }
 .editor-hint { font-size: 0.7rem; color: var(--text-muted); opacity: 0.5; margin-top: 6px; margin-bottom: 10px; }
