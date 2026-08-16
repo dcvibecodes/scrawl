@@ -9,7 +9,10 @@
     var htmlTextarea = null;
     var htmlBtn = null;
 
-    document.execCommand('defaultParagraphSeparator', false, 'p');
+    // Safari throws on this command — wrap in try/catch so the whole script doesn't crash
+    try {
+        document.execCommand('defaultParagraphSeparator', false, 'p');
+    } catch (e) {}
 
     function getEditor() {
         return document.getElementById('article-content');
@@ -335,6 +338,9 @@
             htmlTextarea.placeholder = 'Paste or edit HTML here...';
             editor.parentNode.insertBefore(htmlTextarea, editor.nextSibling);
         }
+        var toolbar = document.querySelector('.article-editor-toolbar');
+        var counter = document.getElementById('article-char-counter');
+        var hint = document.querySelector('.editor-hint');
         if (!htmlMode) {
             // Switch to HTML mode: copy current content into textarea
             htmlTextarea.value = editor.innerHTML;
@@ -342,6 +348,10 @@
             htmlTextarea.style.display = 'block';
             htmlMode = true;
             if (htmlBtn) htmlBtn.classList.add('active');
+            // Gray out formatting buttons, hide counter & hint (not applicable in HTML mode)
+            if (toolbar) toolbar.classList.add('html-mode');
+            if (counter) counter.style.display = 'none';
+            if (hint) hint.style.display = 'none';
             htmlTextarea.focus();
         } else {
             // Switch back to visual mode: put textarea content back into editor
@@ -350,6 +360,10 @@
             editor.style.display = '';
             htmlMode = false;
             if (htmlBtn) htmlBtn.classList.remove('active');
+            // Restore toolbar, counter & hint
+            if (toolbar) toolbar.classList.remove('html-mode');
+            if (counter) counter.style.display = '';
+            if (hint) hint.style.display = '';
             editor.focus();
         }
     };
@@ -370,6 +384,10 @@
         }
         return getEditor().textContent.trim();
     }
+
+    // Expose these on window so inline scripts (e.g. landing page saveLanding) can call them
+    window.getContent = getContent;
+    window.getTextContent = getTextContent;
 
     window.confirmCancel = function() {
         var title = document.getElementById('article-title').value.trim();
@@ -481,6 +499,20 @@
         editorMode = options.mode || 'new';
         editorArticleId = options.articleId || null;
         editorIsDraft = !!options.isDraft;
+        htmlBtn = document.getElementById('htmlModeBtn');
+        // Safety net: if the HTML button is missing from the DOM, create it
+        if (!htmlBtn) {
+            var toolbar = document.querySelector('.article-editor-toolbar');
+            if (toolbar) {
+                htmlBtn = document.createElement('button');
+                htmlBtn.type = 'button';
+                htmlBtn.id = 'htmlModeBtn';
+                htmlBtn.title = 'HTML source mode';
+                htmlBtn.innerHTML = '&#60;/&#62;';
+                htmlBtn.onclick = function() { toggleHtmlMode(); };
+                toolbar.appendChild(htmlBtn);
+            }
+        }
         if (editorMode === 'edit') {
             wrapBareContent();
         }

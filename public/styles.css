@@ -236,13 +236,18 @@ font-weight: normal;
 }
 
 /* ===== Article styles ===== */
-.article-editor-toolbar { display: flex; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.article-editor-toolbar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; }
 .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; flex-shrink: 0; }
 .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
 .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
 [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
 [data-theme="dark"] .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
 [data-theme="dark"] .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
+/* In HTML mode, gray out all formatting buttons (they don't apply to source editing).
+   The HTML toggle button (#htmlModeBtn) stays active so you can exit HTML mode. */
+.article-editor-toolbar.html-mode button:not(#htmlModeBtn) { opacity: 0.35; pointer-events: none; }
+.article-editor-toolbar.html-mode button:not(#htmlModeBtn).active { background: none !important; color: var(--text-main) !important; border-color: var(--separator-color) !important; }
+[data-theme="dark"] .article-editor-toolbar.html-mode button:not(#htmlModeBtn).active { background: none !important; color: var(--text-main) !important; border-color: var(--separator-color) !important; }
 .article-content-editor { min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: inherit; font-size: 1rem; line-height: 1.6; color: var(--text-main); }
 .html-source-editor { display: none; min-height: 200px; padding: 12px 0; border: none; border-bottom: 1px solid var(--separator-color); outline: none; font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; font-size: 0.85rem; line-height: 1.6; color: var(--text-main); background: var(--bg-body); resize: vertical; }
 .article-content-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; pointer-events: none; }
