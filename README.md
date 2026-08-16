@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.4.0**
+**Version 4.5.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -269,11 +269,11 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 
 ## Changelog
 
-### Version 4.4.0
+### Version 4.5.0
 
-#### Removed
+#### Added
 
-- **Thought bubble avatar on posts** — the pixel-art thought bubble that appeared to the left of each post has been removed entirely. Posts now render cleanly with just the date and content. The pixel-art avatar next to commenter names remains unchanged.
+- **Thought bubble avatar on posts** — the pixel-art thought bubble is back next to the date on every post. It's monochrome (black in light theme, white in dark theme) with two trailing dots leaning toward the post content. The date and first line of each post wrap around it.
 
 ### Version 4.3.0
 
