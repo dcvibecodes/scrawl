@@ -34,18 +34,25 @@ router.post('/api/comments', async (req, res) => {
         }
         // --- End Spam Protection ---
 
-        const { article_id, parent_id, author, content } = req.body;
-        if (!article_id || !author || !content) {
-            return res.status(400).json({ success: false, error: 'Article ID, author, and content are required.' });
+        const { article_id, post_id, parent_id, author, content } = req.body;
+        if ((!article_id && !post_id) || !author || !content) {
+            return res.status(400).json({ success: false, error: 'Target ID, author, and content are required.' });
         }
         if (content.length > 2000) {
             return res.status(400).json({ success: false, error: 'Comment must be 2000 characters or fewer.' });
         }
 
-        // Verify article exists and is published
-        const article = await db.get('SELECT id, status FROM articles WHERE id = ?', [article_id]);
-        if (!article || (article.status !== 'published' && !req.isOwner)) {
-            return res.status(404).json({ success: false, error: 'Article not found.' });
+        // Verify target exists (article must be published; post always exists)
+        if (article_id) {
+            const article = await db.get('SELECT id, status FROM articles WHERE id = ?', [article_id]);
+            if (!article || (article.status !== 'published' && !req.isOwner)) {
+                return res.status(404).json({ success: false, error: 'Article not found.' });
+            }
+        } else {
+            const post = await db.get('SELECT id FROM entries WHERE id = ?', [post_id]);
+            if (!post) {
+                return res.status(404).json({ success: false, error: 'Post not found.' });
+            }
         }
 
         // If parent_id is specified, verify it exists
@@ -65,8 +72,8 @@ router.post('/api/comments', async (req, res) => {
         const authorName = req.isOwner ? (getOwnerName() || author.trim()) : author.trim();
 
         await db.run(
-            'INSERT INTO comments (id, article_id, parent_id, author, content, timestamp, approved, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, article_id, parent_id || null, authorName, content.trim(), timestamp, approved, isOwnerComment]
+            'INSERT INTO comments (id, article_id, post_id, parent_id, author, content, timestamp, approved, is_owner) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, article_id || null, post_id || null, parent_id || null, authorName, content.trim(), timestamp, approved, isOwnerComment]
         );
 
         res.json({ success: true, id, isOwner: req.isOwner });
@@ -117,23 +124,36 @@ router.get('/comments', requireOwner, async (req, res) => {
     try {
         const db = getDb();
         const comments = await db.all(`
-            SELECT c.*, a.title as article_title
+            SELECT c.*, a.title as article_title, e.content as post_content
             FROM comments c
             LEFT JOIN articles a ON c.article_id = a.id
+            LEFT JOIN entries e ON c.post_id = e.id
             WHERE c.is_owner = 0 AND c.approved = 0
             ORDER BY c.timestamp DESC
         `);
 
         const ownerName = getOwnerName();
+
         let commentsListHtml = '';
         if (comments.length === 0) {
-            commentsListHtml = '<p class="no-entries">No comments pending approval.</p>';
+            commentsListHtml = '<p class="no-entries" id="no-comments-msg">No comments pending approval.</p>';
         } else {
             for (const comment of comments) {
+                let targetLabel;
+                let targetHref;
+                if (comment.post_id) {
+                    const raw = comment.post_content || '';
+                    const snippet = raw.length > 60 ? raw.slice(0, 60).trimEnd() + '…' : raw;
+                    targetLabel = snippet || 'Post';
+                    targetHref = `/post/${comment.post_id}`;
+                } else {
+                    targetLabel = comment.article_title || 'Unknown article';
+                    targetHref = `/articles/${comment.article_id}`;
+                }
                 commentsListHtml += `
                     <div class="comment-mgmt-item" data-id="${comment.id}">
                         <div class="comment-mgmt-meta">
-                            <strong>${escapeHtml(comment.author)}</strong> on <a href="/articles/${comment.article_id}">${escapeHtml(comment.article_title || 'Unknown article')}</a> &middot; ${formatDate(comment.timestamp)}
+                            <strong>${escapeHtml(comment.author)}</strong> on <a href="${targetHref}">${escapeHtml(targetLabel)}</a> &middot; ${formatDate(comment.timestamp)}
                         </div>
                         <div class="comment-mgmt-body">${escapeHtml(comment.content)}</div>
                         <div class="comment-mgmt-actions">
@@ -147,7 +167,7 @@ router.get('/comments', requireOwner, async (req, res) => {
 
         const bodyContent = `
             <h2 style="font-size:1rem;font-weight:normal;color:var(--text-muted);margin-bottom:20px;">Comments</h2>
-            <div class="comments-management-list">
+            <div class="comments-management-list" id="commentsMgmtList">
                 ${commentsListHtml}
             </div>
             <script>
@@ -155,7 +175,13 @@ router.get('/comments', requireOwner, async (req, res) => {
                 el.style.transition = 'opacity 0.2s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease';
                 el.style.opacity = '0';
                 setTimeout(function() { el.style.maxHeight = '0'; el.style.marginBottom = '0'; el.style.paddingBottom = '0'; el.style.paddingTop = '0'; el.style.overflow = 'hidden'; }, 50);
-                setTimeout(function() { el.remove(); }, 250);
+                setTimeout(function() {
+                    el.remove();
+                    var list = document.getElementById('commentsMgmtList');
+                    if (list && list.querySelectorAll('.comment-mgmt-item').length === 0) {
+                        list.innerHTML = '<p class="no-entries" id="no-comments-msg">No comments pending approval.</p>';
+                    }
+                }, 250);
             }
             function mgmtApprove(link, id) {
                 link.textContent = 'approving...';

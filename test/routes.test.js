@@ -133,6 +133,49 @@ test('GET /articles/:id shows pending comments to owner', async () => {
     assert.ok(res.text.includes('Nice article!'));
 });
 
+test('POST /api/comments creates a pending comment on a post (public)', async () => {
+    const apiRes = await request(app).get('/api/posts');
+    const postId = apiRes.body.posts[0].id;
+
+    const res = await request(app)
+        .post('/api/comments')
+        .send({
+            post_id: postId,
+            parent_id: null,
+            author: 'PostReader',
+            content: 'Nice post!',
+            website_url: '',
+            _token: makeOldSpamToken()
+        });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+});
+
+test('GET /post/:id hides pending post comments from public', async () => {
+    const apiRes = await request(app).get('/api/posts');
+    const postId = apiRes.body.posts[0].id;
+
+    const res = await request(app).get('/post/' + postId);
+    assert.strictEqual(res.status, 200);
+    assert.ok(!res.text.includes('Nice post!'));
+});
+
+test('GET /post/:id shows pending post comments to owner', async () => {
+    const apiRes = await request(app).get('/api/posts');
+    const postId = apiRes.body.posts[0].id;
+
+    const res = await agent.get('/post/' + postId);
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.text.includes('Nice post!'));
+});
+
+test('GET /comments shows post and article comments in a single list', async () => {
+    const res = await agent.get('/comments');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.text.includes('Nice post!'));
+    assert.ok(res.text.includes('Nice article!'));
+});
+
 test('POST /api/comments rejects too-fast submissions (spam token)', async () => {
     const listRes = await request(app).get('/articles');
     const match = listRes.text.match(/\/articles\/([a-f0-9-]+)">Test Article/);

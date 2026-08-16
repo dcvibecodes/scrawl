@@ -259,6 +259,15 @@ font-weight: normal;
 
 /* ===== Comment styles ===== */
 .comments-section { border-top: 1px solid var(--separator-color); padding-top: 20px; }
+.no-comments-prompt {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+.no-comments-prompt a {
+    color: var(--text-muted);
+    text-decoration: underline;
+}
 .comments-thread { margin-top: 20px; }
 .comment-item { position: relative; margin-bottom: 16px; }
 .comment-item.comment-pending .comment-bubble { opacity: 0.5; }

@@ -57,14 +57,14 @@ async function initDatabase() {
     await db.exec(`
         CREATE TABLE IF NOT EXISTS comments (
             id TEXT PRIMARY KEY,
-            article_id TEXT NOT NULL,
+            article_id TEXT,
+            post_id TEXT,
             parent_id TEXT,
             author TEXT NOT NULL,
             content TEXT NOT NULL,
             timestamp INTEGER NOT NULL,
             approved INTEGER NOT NULL DEFAULT 0,
-            is_owner INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+            is_owner INTEGER NOT NULL DEFAULT 0
         )
     `);
 
@@ -73,6 +73,39 @@ async function initDatabase() {
         await db.exec(`ALTER TABLE comments ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0`);
     } catch (e) {
         // Column already exists, ignore
+    }
+
+    // Migrate: add post_id column if missing (for existing databases)
+    try {
+        await db.exec(`ALTER TABLE comments ADD COLUMN post_id TEXT`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Migrate: make article_id nullable (rebuild table if it was NOT NULL)
+    const commentsInfo = await db.all(`PRAGMA table_info(comments)`);
+    const articleIdCol = commentsInfo.find(c => c.name === 'article_id');
+    if (articleIdCol && articleIdCol.notnull === 1) {
+        await db.exec(`
+            CREATE TABLE comments_new (
+                id TEXT PRIMARY KEY,
+                article_id TEXT,
+                post_id TEXT,
+                parent_id TEXT,
+                author TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                approved INTEGER NOT NULL DEFAULT 0,
+                is_owner INTEGER NOT NULL DEFAULT 0
+            )
+        `);
+        await db.exec(`
+            INSERT INTO comments_new (id, article_id, post_id, parent_id, author, content, timestamp, approved, is_owner)
+            SELECT id, article_id, post_id, parent_id, author, content, timestamp, approved, is_owner
+            FROM comments
+        `);
+        await db.exec(`DROP TABLE comments`);
+        await db.exec(`ALTER TABLE comments_new RENAME TO comments`);
     }
 
     await db.exec(`

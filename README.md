@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.5.0**
+**Version 3.6.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -22,7 +22,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - No character limit
 - Word and character counter
 - Long posts (280+ chars) collapsed with click-to-expand
-- Actions: permalink, copy text, copy link, edit, delete
+- Actions: permalink, copy text, copy link, comment, edit, delete
 
 ### Articles
 
@@ -47,11 +47,11 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 
 ### Comments & Discussion
 
-- Threaded comments on articles (only articles, not posts)
+- Threaded comments on both posts and articles
 - Readers identify themselves with a "Discuss as" name — cached in browser localStorage indefinitely (no login required)
 - Nested replies with visual thread connectors (left border lines showing hierarchy)
 - Reply depth capped at 4 levels of indentation to preserve readability on mobile
-- Comment form always visible below articles — no extra clicks to start discussing
+- When a post/article has no comments, a subtle "No comments yet. Be the first to comment" prompt is shown — clicking it reveals the discussion form
 - "Comments cannot be edited after posting" hint for readers
 - Moderation: all reader comments require owner approval before they become visible to other readers
 - Owner comments are auto-approved and appear immediately
@@ -64,8 +64,10 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 
 - Dedicated `/comments` page for the owner (accessible from the menu)
 - Shows only pending reader comments awaiting approval
-- Each comment links to its article for context
+- Post comments show a snippet of the post's first line (with ellipsis); article comments show the article title
+- Each comment links to its post or article for context
 - Approve and delete with inline feedback and animations
+- When the last pending comment is approved/deleted, the empty state appears immediately (no refresh needed)
 
 ### Search
 
@@ -124,7 +126,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - bcrypt-hashed password (12 rounds, salted)
 - HMAC-signed session cookies (httpOnly, sameSite strict)
 - 7-day session persistence
-- Visitors can read all published content and comment on articles
+- Visitors can read all published content and comment on posts and articles
 
 ### Help Page
 
@@ -175,7 +177,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | `/articles/:id/edit` | Edit article (owner) |
 | `/archive` | Post archive by year/month |
 | `/random` | Random post |
-| `/post/:id` | Single post permalink |
+| `/post/:id` | Single post permalink with comments |
 | `/edit/:id` | Edit post (owner) |
 | `/comments` | Comment moderation (owner) |
 | `/contact` | Contact page (form + messages for owner) |
@@ -266,6 +268,21 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.6.0
+
+#### Added
+
+- **Comments on posts** — posts now support threaded comments, exactly like articles. A "comment" link appears in the post actions row (after copy link, before edit/delete for the owner), and the single-post page (`/post/:id`) renders the full Discussion section.
+- **"Be the first to comment" prompt** — when a post or article has no comments, a subtle gray line ("No comments yet. Be the first to comment") is shown instead of the full form. Clicking the link reveals the Discussion section and focuses the comment box.
+- **Post comments in moderation** — the owner's `/comments` page now shows pending comments on posts alongside article comments in a single list. Post comments display a snippet of the post's first line (with ellipsis) as the link label.
+- **Shared comment component** — the entire comment UI (form, threading, approve/delete, spam protection) was extracted into a single reusable module so posts and articles render identical discussion sections.
+
+#### Changed
+
+- **Unified comment moderation list** — removed the "Comments on Posts" / "Comments on Articles" grouping; all pending comments now appear in one flat list, each linking to its source.
+- **Empty state on moderation** — approving/deleting the last pending comment now immediately shows "No comments pending approval" without a page refresh.
+- **Post snippet ellipsis** — truncated post snippets in the moderation list now end with an ellipsis (…) instead of cutting off abruptly.
 
 ### Version 3.5.0
 

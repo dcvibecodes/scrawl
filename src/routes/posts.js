@@ -6,6 +6,7 @@ const { isOwnerSetup, getBlogTitle, getOwnerName } = require('../config');
 const { requireOwner } = require('../middleware/auth');
 const { escapeHtml, stripHtml, formatDate, generateId } = require('../utils/html');
 const { ENTRY_AVATAR } = require('../utils/avatar');
+const { renderCommentsSection } = require('../utils/comments');
 
 const PAGE_SIZE = 50;
 
@@ -40,14 +41,15 @@ function renderEntries(entries, isOwner) {
                 <div class="content${expandableClass}"
                 data-expanded="false"
                 data-full="${entry.content
-                .replace(/&/g, '&amp;')
-                .replace(/"/g, '&quot;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')}">${snippetContent}</div>
+                .replace(/&/g, '\u0026amp;')
+                .replace(/"/g, '\u0026quot;')
+                .replace(/</g, '\u0026lt;')
+                .replace(/>/g, '\u0026gt;')}">${snippetContent}</div>
                 <div class="actions">
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
+                    <a href="/post/${entry.id}" class="copy-link">comment</a>
                     ${ownerActions}
                 </div>
             </div>
@@ -283,6 +285,22 @@ router.get('/post/:id', async (req, res) => {
                         <button type="submit" class="delete-btn">delete</button>
                     </form>` : '';
 
+        // Fetch comments for this post
+        let comments;
+        if (req.isOwner) {
+            comments = await db.all('SELECT * FROM comments WHERE post_id = ? ORDER BY timestamp ASC', [entry.id]);
+        } else {
+            comments = await db.all('SELECT * FROM comments WHERE post_id = ? AND approved = 1 ORDER BY timestamp ASC', [entry.id]);
+        }
+
+        const commentsSection = renderCommentsSection({
+            targetId: entry.id,
+            targetType: 'post',
+            comments,
+            isOwner: req.isOwner,
+            ownerName: getOwnerName()
+        });
+
         const bodyContent = `
             <div class="entry" style="border-bottom:none;">
                 ${ENTRY_AVATAR}
@@ -292,9 +310,11 @@ router.get('/post/:id', async (req, res) => {
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
+                    <a href="/post/${entry.id}" class="copy-link">comment</a>
                     ${ownerActions}
                 </div>
             </div>
+            ${commentsSection}
             <p style="margin-top:30px;"><a href="/" class="back-link">&larr; back</a></p>
         `;
 
