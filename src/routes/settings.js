@@ -64,16 +64,6 @@ router.get('/settings', requireOwner, (req, res) => {
                 </div>
             </div>
 
-            <!-- Theme -->
-            <div class="settings-section">
-                <h3>Theme</h3>
-                <p class="settings-hint">Choose between light and dark mode.</p>
-                <div class="settings-option">
-                    <label><input type="radio" name="theme" value="light" id="themeLight"> Light</label>
-                    <label><input type="radio" name="theme" value="dark" id="themeDark"> Dark</label>
-                </div>
-            </div>
-
             <!-- Edit Title -->
             <div class="settings-section">
                 <h3>Edit Title</h3>
@@ -194,20 +184,6 @@ router.get('/settings', requireOwner, (req, res) => {
             .catch(function() { setStatus('settingsStatus', 'Failed', true); });
         }
         updateMenuVisibility();
-
-        // Theme
-        var themeLight = document.getElementById('themeLight');
-        var themeDark = document.getElementById('themeDark');
-        if (document.documentElement.getAttribute('data-theme') === 'dark') { themeDark.checked = true; }
-        else { themeLight.checked = true; }
-        themeLight.addEventListener('change', function() {
-            document.documentElement.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'light');
-        });
-        themeDark.addEventListener('change', function() {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            localStorage.setItem('theme', 'dark');
-        });
 
         // Title
         function saveTitle() {

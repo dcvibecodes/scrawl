@@ -34,10 +34,12 @@
             var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             if (isDark) {
                 document.documentElement.removeAttribute('data-theme');
+                document.documentElement.style.backgroundColor = '#ffffff';
                 mobileTheme.textContent = 'dark';
                 localStorage.setItem('theme', 'light');
             } else {
                 document.documentElement.setAttribute('data-theme', 'dark');
+                document.documentElement.style.backgroundColor = '#000000';
                 mobileTheme.textContent = 'light';
                 localStorage.setItem('theme', 'dark');
             }
@@ -109,10 +111,12 @@
             var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             if (isDark) {
                 document.documentElement.removeAttribute('data-theme');
+                document.documentElement.style.backgroundColor = '#ffffff';
                 toggleBtn.textContent = 'dark';
                 localStorage.setItem('theme', 'light');
             } else {
                 document.documentElement.setAttribute('data-theme', 'dark');
+                document.documentElement.style.backgroundColor = '#000000';
                 toggleBtn.textContent = 'light';
                 localStorage.setItem('theme', 'dark');
             }
