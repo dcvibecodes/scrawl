@@ -126,7 +126,7 @@ router.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
                 <button type="button" onclick="execSeparator()" title="Horizontal rule">&#8213;</button>
                 <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
-                <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">\u003c/\u003e</button>
+                <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">&#60;/&#62;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
             <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
@@ -328,7 +328,7 @@ router.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
                     <button type="button" onclick="execSeparator()" title="Horizontal rule">&#8213;</button>
                 <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
-                <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">\u003c/\u003e</button>
+                <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">&#60;/&#62;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
                 <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
