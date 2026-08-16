@@ -254,17 +254,55 @@ router.get('/', async (req, res) => {
     if (settings.landingPage === 'custom') {
         const db = getDb();
         const content = settings.customLandingContent || '';
-        const addContentBtn = req.isOwner ? `
-            <div style="margin-bottom:20px;">
-                <a href="/landing/edit" class="btn">${content ? 'Edit content' : 'Add content'}</a>
-            </div>
-        ` : '';
-        const bodyContent = `
-            ${addContentBtn}
-            <div class="entry" style="border-bottom:none;">
-                <div class="article-body">${sanitizeArticleHtml(content)}</div>
-            </div>
-        `;
+        let bodyContent;
+        if (content) {
+            // Content exists: render as an entry with edit/delete below (mirroring posts/articles)
+            const ownerActions = req.isOwner ? `
+                <div class="actions" style="margin-top:20px;">
+                    <a href="/landing/edit" class="edit-link">edit</a>
+                    <a href="#" class="delete-btn" onclick="deleteLanding(this);return false;">delete</a>
+                </div>
+            ` : '';
+            bodyContent = `
+                <div class="entry" style="border-bottom:none;">
+                    <div class="article-body">${sanitizeArticleHtml(content)}</div>
+                    ${ownerActions}
+                </div>
+                ${req.isOwner ? `
+                <script>
+                function deleteLanding(el) {
+                    if (el.dataset.confirming === 'true') {
+                        el.textContent = 'deleting...';
+                        fetch('/api/landing/delete', { method: 'POST' })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.success) { window.location.reload(); }
+                            else { el.textContent = 'delete'; el.dataset.confirming = ''; }
+                        })
+                        .catch(function() { el.textContent = 'delete'; el.dataset.confirming = ''; });
+                        return;
+                    }
+                    el.textContent = 'confirm?';
+                    el.dataset.confirming = 'true';
+                    setTimeout(function() {
+                        if (el.dataset.confirming === 'true') {
+                            el.textContent = 'delete';
+                            el.dataset.confirming = '';
+                        }
+                    }, 3000);
+                }
+                </script>
+                ` : ''}
+            `;
+        } else {
+            // No content: show "Add content" button on top, blank page to visitors
+            const addContentBtn = req.isOwner ? `
+                <div style="margin-bottom:20px;">
+                    <a href="/landing/edit" class="btn">Add content</a>
+                </div>
+            ` : '';
+            bodyContent = `${addContentBtn}`;
+        }
         return res.send(layoutTemplate({
             title: getBlogTitle(),
             bodyContent,
@@ -723,6 +761,14 @@ router.post('/api/landing', requireOwner, (req, res) => {
     const { content } = req.body;
     const settings = getSettings();
     settings.customLandingContent = String(content || '');
+    saveSettings(settings);
+    res.json({ success: true });
+});
+
+// Delete custom landing content (owner only)
+router.post('/api/landing/delete', requireOwner, (req, res) => {
+    const settings = getSettings();
+    settings.customLandingContent = '';
     saveSettings(settings);
     res.json({ success: true });
 });

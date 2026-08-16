@@ -83,7 +83,7 @@ button:hover, .btn:hover { opacity: 0.8; }
 .search-snippet { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: -8px; }
 .edit-link { color: var(--text-muted); text-decoration: none; font-weight: normal; font-size: 0.85rem; transition: color 0.2s ease; }
 .edit-link:hover { color: var(--text-main); }
-.delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.delete-btn { background: none !important; color: #d96b6b; border: none; padding: 0; margin: 0; font-size: 0.85rem; font-weight: normal; cursor: pointer; appearance: none; -webkit-appearance: none; text-decoration: none; }
 .delete-btn:hover { color: #ff7a7a; }
 [data-theme="dark"] .delete-btn { background: none !important; color: #d96b6b; }
 .nav-icon-btn { color: var(--text-muted); opacity: 0.6; line-height: 1; text-decoration: none; transition: opacity 0.2s ease; }
