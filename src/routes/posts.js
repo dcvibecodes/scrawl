@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
-const { isOwnerSetup, getBlogTitle, getOwnerName } = require('../config');
+const { isOwnerSetup, getBlogTitle, getOwnerName, getSettings, saveSettings } = require('../config');
 const { requireOwner } = require('../middleware/auth');
-const { escapeHtml, stripHtml, formatDate, generateId } = require('../utils/html');
+const { escapeHtml, stripHtml, formatDate, generateId, sanitizeArticleHtml } = require('../utils/html');
 const { ENTRY_AVATAR } = require('../utils/avatar');
 const { renderCommentsSection } = require('../utils/comments');
 
@@ -14,6 +14,8 @@ function renderEntries(entries, isOwner) {
     if (entries.length === 0) {
         return '<p class="no-entries">Nothing here yet.</p>';
     }
+    const settings = getSettings();
+    const showCommentLink = settings.commentsOnPostsEnabled;
     return entries.map(entry => {
         const dateStr = formatDate(entry.timestamp);
         const fullDate = new Date(entry.timestamp).toLocaleString();
@@ -49,7 +51,7 @@ function renderEntries(entries, isOwner) {
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
-                    <a href="/post/${entry.id}" class="copy-link">comment</a>
+                    ${showCommentLink ? `<a href="/post/${entry.id}" class="copy-link">comment</a>` : ''}
                     ${ownerActions}
                 </div>
             </div>
@@ -72,177 +74,202 @@ async function getArchives() {
 
 // --- Main Routes ---
 
-router.get('/', async (req, res) => {
-    // Redirect to setup if no owner password exists
-    if (!isOwnerSetup()) return res.redirect('/setup');
+// Render the posts feed (used by both / and /posts)
+async function renderPostsFeed(req, res) {
+    const db = getDb();
+    const searchQuery = req.query.q || '';
+    let entries;
+    let hasMore = false;
+    let articleResults = [];
 
-    try {
-        const db = getDb();
-        const searchQuery = req.query.q || '';
-let entries;
-let hasMore = false;
-let articleResults = [];
+    const offset = parseInt(req.query.offset || '0', 10);
 
-const offset = parseInt(req.query.offset || '0', 10);
+    if (searchQuery) {
+        const words = searchQuery.trim()
+            .replace(/["""*\-+(){}[\]^~:]/g, '')
+            .split(/\s+/)
+            .filter(w => w.length > 0);
 
-        if (searchQuery) {
-            // Sanitize: remove FTS5 special characters, split into words
-            const words = searchQuery.trim()
-                .replace(/["""*\-+(){}[\]^~:]/g, '')
-                .split(/\s+/)
-                .filter(w => w.length > 0);
-
-            if (words.length === 0) {
-                entries = [];
-            } else {
-                // Each word gets a prefix wildcard, joined with AND
-                const formattedQuery = words.map(w => '"' + w.replace(/"/g, '') + '"*').join(' AND ');
-                entries = await db.all(`
-                    SELECT entries.*
-                    FROM entries
-                    JOIN entries_fts ON entries.id = entries_fts.id
-                    WHERE entries_fts.content MATCH ?
-                    ORDER BY entries_fts.rank
-                `, [formattedQuery]);
-
-                // Also search articles (with a content excerpt around the match)
-                articleResults = await db.all(`
-                    SELECT articles.*, snippet(articles_fts, 2, '', '', '…', 32) AS snippet
-                    FROM articles
-                    JOIN articles_fts ON articles.id = articles_fts.id
-                    WHERE articles_fts MATCH ?
-                    AND articles.status = 'published'
-                    ORDER BY articles_fts.rank
-                `, [formattedQuery]);
-            }
+        if (words.length === 0) {
+            entries = [];
         } else {
-    entries = await db.all(
-    'SELECT * FROM entries ORDER BY timestamp DESC LIMIT ? OFFSET ?',
-    [PAGE_SIZE, offset]
-);
+            const formattedQuery = words.map(w => '"' + w.replace(/"/g, '') + '"*').join(' AND ');
+            entries = await db.all(`
+                SELECT entries.*
+                FROM entries
+                JOIN entries_fts ON entries.id = entries_fts.id
+                WHERE entries_fts.content MATCH ?
+                ORDER BY entries_fts.rank
+            `, [formattedQuery]);
 
-const totalPosts = await db.get(
-    'SELECT COUNT(*) AS count FROM entries'
-);
-
-hasMore = offset + PAGE_SIZE < totalPosts.count;
-}
-
-        const entriesHTML = renderEntries(entries, req.isOwner);
-
-        // Publish box: shown fully for owner, search icon next to publish. Logged out: just login prompt.
-        let publishSection;
-        if (req.isOwner) {
-            publishSection = `
-                <form action="/add" method="POST">
-                    <textarea
-                        id="main-publish-box"
-                        name="content"
-                        placeholder="Write something..."
-                        required
-                        oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
-                    ></textarea>
-                    <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        var el = document.getElementById('main-publish-box');
-                        if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
-                    });
-                    </script>
-                    <div class="char-counter" id="char-counter">0 words &middot; 0 characters</div>
-                    <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
-                    <div class="publish-row">
-                        <button type="submit">Post</button>
-                    </div>
-                </form>
-            `;
-        } else {
-            publishSection = '';
+            articleResults = await db.all(`
+                SELECT articles.*, snippet(articles_fts, 2, '', '', '…', 32) AS snippet
+                FROM articles
+                JOIN articles_fts ON articles.id = articles_fts.id
+                WHERE articles_fts MATCH ?
+                AND articles.status = 'published'
+                ORDER BY articles_fts.rank
+            `, [formattedQuery]);
         }
+    } else {
+        entries = await db.all(
+            'SELECT * FROM entries ORDER BY timestamp DESC LIMIT ? OFFSET ?',
+            [PAGE_SIZE, offset]
+        );
+        const totalPosts = await db.get('SELECT COUNT(*) AS count FROM entries');
+        hasMore = offset + PAGE_SIZE < totalPosts.count;
+    }
 
-        const bodyContent = `
-            ${publishSection}
-            ${searchQuery ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px;">${entries.length + articleResults.length} result${(entries.length + articleResults.length) !== 1 ? 's' : ''} for "${escapeHtml(searchQuery)}"</p>` : ''}
-            ${searchQuery && articleResults.length > 0 ? `
-                <div style="margin-bottom:25px;">
-                    <h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Articles</h3>
-                    ${articleResults.map(a => {
-                        // Show the excerpt around the match; if the match is only in the title,
-                        // snippet() returns '' so fall back to the start of the article
-                        const excerpt = (a.snippet || stripHtml(a.content).slice(0, 160)).trim();
-                        return `
-                        <div class="entry">
-                            <div class="date">${formatDate(a.timestamp)}</div>
-                            <div class="content"><a href="/articles/${a.id}" style="color:var(--text-main);text-decoration:none;font-weight:600;">${escapeHtml(a.title)}</a></div>
-                            ${excerpt ? `<div class="search-snippet">${escapeHtml(excerpt)}</div>` : ''}
-                        </div>
-                    `;
-                    }).join('')}
+    const entriesHTML = renderEntries(entries, req.isOwner);
+
+    let publishSection;
+    if (req.isOwner) {
+        publishSection = `
+            <form action="/add" method="POST">
+                <textarea
+                    id="main-publish-box"
+                    name="content"
+                    placeholder="Write something..."
+                    required
+                    oninput="var s=window.scrollY;this.style.height='auto';this.style.height=this.scrollHeight+'px';window.scrollTo(0,s);"
+                ></textarea>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    var el = document.getElementById('main-publish-box');
+                    if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+                });
+                </script>
+                <div class="char-counter" id="char-counter">0 words &middot; 0 characters</div>
+                <div class="shortcut-hint">Shortcuts: <kbd>N</kbd> = new post &middot; <kbd>/</kbd> = search</div>
+                <div class="publish-row">
+                    <button type="submit">Post</button>
                 </div>
-                ${entries.length > 0 ? '<h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Posts</h3>' : ''}
-            ` : ''}
-            <div id="entries">${searchQuery && entries.length === 0 ? '' : entriesHTML}</div>
-            ${(!searchQuery && hasMore) ? `
-            <div style="text-align:center;margin:30px 0;">
-                <a href="/?offset=${offset + 50}" class="btn">
-                    Load More
-                </a>
+            </form>
+        `;
+    } else {
+        publishSection = '';
+    }
+
+    const bodyContent = `
+        ${publishSection}
+        ${searchQuery ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:20px;">${entries.length + articleResults.length} result${(entries.length + articleResults.length) !== 1 ? 's' : ''} for "${escapeHtml(searchQuery)}"</p>` : ''}
+        ${searchQuery && articleResults.length > 0 ? `
+            <div style="margin-bottom:25px;">
+                <h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Articles</h3>
+                ${articleResults.map(a => {
+                    const excerpt = (a.snippet || stripHtml(a.content).slice(0, 160)).trim();
+                    return `
+                    <div class="entry">
+                        <div class="date">${formatDate(a.timestamp)}</div>
+                        <div class="content"><a href="/articles/${a.id}" style="color:var(--text-main);text-decoration:none;font-weight:600;">${escapeHtml(a.title)}</a></div>
+                        ${excerpt ? `<div class="search-snippet">${escapeHtml(excerpt)}</div>` : ''}
+                    </div>
+                `;
+                }).join('')}
             </div>
-            ` : ''}
+            ${entries.length > 0 ? '<h3 style="font-size:0.85rem;color:var(--text-muted);font-weight:normal;margin-bottom:12px;">Posts</h3>' : ''}
+        ` : ''}
+        <div id="entries">${searchQuery && entries.length === 0 ? '' : entriesHTML}</div>
+        ${(!searchQuery && hasMore) ? `
+        <div style="text-align:center;margin:30px 0;">
+            <a href="/posts?offset=${offset + 50}" class="btn">
+                Load More
+            </a>
+        </div>
+        ` : ''}
 
-            <script>
-                var publishBox = document.getElementById('main-publish-box');
-                var charCounter = document.getElementById('char-counter');
-                if (publishBox && charCounter) {
-                    publishBox.addEventListener('input', function() {
-                        var text = this.value;
-                        var chars = text.length;
-                        var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
-                        charCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
-                    });
+        <script>
+            var publishBox = document.getElementById('main-publish-box');
+            var charCounter = document.getElementById('char-counter');
+            if (publishBox && charCounter) {
+                publishBox.addEventListener('input', function() {
+                    var text = this.value;
+                    var chars = text.length;
+                    var words = text.trim() === '' ? 0 : text.trim().split(/\\s+/).length;
+                    charCounter.textContent = words + ' words \\u00b7 ' + chars + ' characters';
+                });
+            }
+
+            document.addEventListener('keydown', function(e) {
+                var tag = e.target.tagName.toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                if (e.key === 'n' || e.key === 'N') {
+                    e.preventDefault();
+                    var box = document.getElementById('main-publish-box');
+                    if (box) box.focus();
                 }
+            });
 
-                document.addEventListener('keydown', function(e) {
-                    var tag = e.target.tagName.toLowerCase();
-                    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-                    if (e.key === 'n' || e.key === 'N') {
+            if (publishBox) {
+                var postNavigating = false;
+                window.addEventListener('beforeunload', function(e) {
+                    if (!postNavigating && publishBox.value.trim()) {
                         e.preventDefault();
-                        var box = document.getElementById('main-publish-box');
-                        if (box) box.focus();
+                        e.returnValue = '';
                     }
                 });
-
-                // Unsaved post changes protection
-                if (publishBox) {
-                    var postNavigating = false;
-                    window.addEventListener('beforeunload', function(e) {
-                        if (!postNavigating && publishBox.value.trim()) {
+                document.addEventListener('click', function(e) {
+                    var link = e.target.closest('a');
+                    if (!link || !link.href) return;
+                    if (link.getAttribute('href') === '#') return;
+                    if (publishBox.value.trim()) {
+                        if (!confirm('You have unsaved changes. Discard?')) {
                             e.preventDefault();
-                            e.returnValue = '';
+                            e.stopPropagation();
+                        } else {
+                            postNavigating = true;
                         }
-                    });
-                    document.addEventListener('click', function(e) {
-                        var link = e.target.closest('a');
-                        if (!link || !link.href) return;
-                        if (link.getAttribute('href') === '#') return;
-                        if (publishBox.value.trim()) {
-                            if (!confirm('You have unsaved changes. Discard?')) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                            } else {
-                                postNavigating = true;
-                            }
-                        }
-                    }, true);
-                }
-            </script>
-        `;
+                    }
+                }, true);
+            }
+        </script>
+    `;
 
-        res.send(layoutTemplate({
+    res.send(layoutTemplate({
+        title: getBlogTitle(),
+        bodyContent,
+        isOwner: req.isOwner,
+        blogTitle: getBlogTitle(),
+        searchQuery,
+        pendingComments: req.pendingComments || 0,
+        pendingMessages: req.pendingMessages || 0,
+        showRandom: true,
+        meta: {
+            title: getBlogTitle(),
+            description: (getOwnerName() ? getOwnerName() + ' — ' : '') + 'A personal publishing space for quick posts and long-form articles.',
+            url: `${req.protocol}://${req.get('host')}/`,
+            type: 'website'
+        }
+    }));
+}
+
+// Home page — renders the configured landing page
+router.get('/', async (req, res) => {
+    if (!isOwnerSetup()) return res.redirect('/setup');
+    const settings = getSettings();
+
+    if (settings.landingPage === 'articles' && settings.articlesEnabled) {
+        return res.redirect('/articles');
+    }
+    if (settings.landingPage === 'custom') {
+        const db = getDb();
+        const content = settings.customLandingContent || '';
+        const addContentBtn = req.isOwner ? `
+            <div style="margin-bottom:20px;">
+                <a href="/landing/edit" class="btn">${content ? 'Edit content' : 'Add content'}</a>
+            </div>
+        ` : '';
+        const bodyContent = `
+            ${addContentBtn}
+            <div class="entry" style="border-bottom:none;">
+                <div class="article-body">${sanitizeArticleHtml(content)}</div>
+            </div>
+        `;
+        return res.send(layoutTemplate({
             title: getBlogTitle(),
             bodyContent,
             isOwner: req.isOwner,
             blogTitle: getBlogTitle(),
-            searchQuery,
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
             meta: {
@@ -252,10 +279,17 @@ hasMore = offset + PAGE_SIZE < totalPosts.count;
                 type: 'website'
             }
         }));
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Error rendering page.');
     }
+    // Default: posts feed
+    return renderPostsFeed(req, res);
+});
+
+// Posts feed (always shows posts, regardless of landing page setting)
+router.get('/posts', async (req, res) => {
+    if (!isOwnerSetup()) return res.redirect('/setup');
+    const settings = getSettings();
+    if (!settings.postsEnabled) return res.status(404).send('Posts are disabled.');
+    return renderPostsFeed(req, res);
 });
 
 router.get('/random', async (req, res) => {
@@ -293,13 +327,14 @@ router.get('/post/:id', async (req, res) => {
             comments = await db.all('SELECT * FROM comments WHERE post_id = ? AND approved = 1 ORDER BY timestamp ASC', [entry.id]);
         }
 
-        const commentsSection = renderCommentsSection({
+        const settings = getSettings();
+        const commentsSection = settings.commentsOnPostsEnabled ? renderCommentsSection({
             targetId: entry.id,
             targetType: 'post',
             comments,
             isOwner: req.isOwner,
             ownerName: getOwnerName()
-        });
+        }) : '';
 
         const bodyContent = `
             <div class="entry" style="border-bottom:none;">
@@ -324,6 +359,7 @@ router.get('/post/:id', async (req, res) => {
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
             blogTitle: getBlogTitle(),
+            showRandom: true,
             meta: {
                 title: getBlogTitle(),
                 description: entry.content.substring(0, 200).trim(),
@@ -364,7 +400,8 @@ router.get('/archive/year/:year', async (req, res) => {
             isOwner: req.isOwner,
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            showRandom: true
         }));
     } catch (err) {
         res.status(500).send('Error fetching year archive.');
@@ -400,7 +437,8 @@ router.get('/archive/month/:month', async (req, res) => {
             isOwner: req.isOwner,
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            showRandom: true
         }));
     } catch (err) {
         res.status(500).send('Error fetching month archive.');
@@ -437,7 +475,8 @@ router.get('/archive/:year/:month', async (req, res) => {
             isOwner: req.isOwner,
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            showRandom: true
         }));
     } catch (err) {
         res.status(500).send('Error fetching archive.');
@@ -489,7 +528,8 @@ router.get('/archive', async (req, res) => {
             isOwner: req.isOwner,
             pendingComments: req.pendingComments || 0,
             pendingMessages: req.pendingMessages || 0,
-            blogTitle: getBlogTitle()
+            blogTitle: getBlogTitle(),
+            showRandom: true
         }));
     } catch (err) {
         res.status(500).send('Error fetching archive index.');
@@ -615,6 +655,76 @@ router.post('/add', requireOwner, async (req, res) => {
         console.error(err);
         res.status(500).send('Error saving post.');
     }
+});
+
+// Custom landing page editor (owner only) — uses the article composer
+router.get('/landing/edit', requireOwner, async (req, res) => {
+    const settings = getSettings();
+    const content = settings.customLandingContent || '';
+    const bodyContent = `
+        <form id="articleForm" style="margin:0;">
+            <div class="article-editor-toolbar">
+                <button type="button" data-cmd="bold" onclick="execCmd('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button type="button" data-cmd="italic" onclick="execCmd('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
+                <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+                <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+                <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code"><></button>
+                <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
+                <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
+                <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
+                <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
+                <button type="button" data-cmd="insertUnorderedList" onclick="execCmd('insertUnorderedList')" title="Bullet list">&bull;</button>
+                <button type="button" data-cmd="blockquote" onclick="execQuote()" title="Blockquote">&#8220;</button>
+                <button type="button" onclick="execSeparator()" title="Horizontal rule">&#8213;</button>
+                <button type="button" class="linebreak-btn" onclick="execLineBreak()" title="Line break">&#8629;</button>
+            </div>
+            <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your landing page content...">${content}</div>
+            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
+            <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
+            <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
+                <button type="button" onclick="saveLanding()">Save</button>
+                <a href="/" class="back-link" style="margin-left:10px;">cancel</a>
+            </div>
+        </form>
+        <script src="/article-editor.js"></script>
+        <script>
+        initArticleEditor({ mode: 'landing' });
+        function saveLanding() {
+            var btn = document.querySelector('.publish-row button');
+            var content = document.getElementById('article-content').innerHTML;
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+            fetch('/api/landing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: content })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) { window.location.href = '/'; }
+                else { btn.textContent = 'Save'; btn.disabled = false; alert('Failed to save.'); }
+            })
+            .catch(function() { btn.textContent = 'Save'; btn.disabled = false; alert('Failed to save.'); });
+        }
+        </script>
+    `;
+    res.send(layoutTemplate({
+        title: 'Edit Landing Page',
+        bodyContent,
+        isOwner: true,
+        pendingComments: req.pendingComments || 0,
+        pendingMessages: req.pendingMessages || 0,
+        blogTitle: getBlogTitle()
+    }));
+});
+
+// Save custom landing content (owner only)
+router.post('/api/landing', requireOwner, (req, res) => {
+    const { content } = req.body;
+    const settings = getSettings();
+    settings.customLandingContent = String(content || '');
+    saveSettings(settings);
+    res.json({ success: true });
 });
 
 router.post('/delete/:id', requireOwner, async (req, res) => {

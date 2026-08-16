@@ -11,9 +11,18 @@ const SECRET_FILE = path.join(DATA_DIR, 'session.secret');
 const BLOG_TITLE_FILE = path.join(DATA_DIR, 'blog-title.txt');
 const COPYRIGHT_FILE = path.join(DATA_DIR, 'copyright.txt');
 const OWNER_NAME_FILE = path.join(DATA_DIR, 'owner-name.txt');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_BLOG_TITLE = 'Scrawl';
+const DEFAULT_SETTINGS = {
+    landingPage: 'posts',      // 'posts' | 'articles' | 'custom'
+    postsEnabled: true,
+    articlesEnabled: true,
+    commentsOnPostsEnabled: true,
+    commentsOnArticlesEnabled: true,
+    customLandingContent: ''
+};
 
 function getSessionSecret() {
     if (!fs.existsSync(SECRET_FILE)) {
@@ -63,6 +72,23 @@ function saveOwnerName(name) {
     fs.writeFileSync(OWNER_NAME_FILE, name.trim(), 'utf8');
 }
 
+function getSettings() {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+        return { ...DEFAULT_SETTINGS };
+    }
+    try {
+        const parsed = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+        return { ...DEFAULT_SETTINGS, ...parsed };
+    } catch (e) {
+        return { ...DEFAULT_SETTINGS };
+    }
+}
+
+function saveSettings(settings) {
+    const merged = { ...DEFAULT_SETTINGS, ...settings };
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');
+}
+
 module.exports = {
     DATA_DIR,
     HASH_FILE,
@@ -70,9 +96,11 @@ module.exports = {
     BLOG_TITLE_FILE,
     COPYRIGHT_FILE,
     OWNER_NAME_FILE,
+    SETTINGS_FILE,
     BCRYPT_ROUNDS,
     SESSION_MAX_AGE,
     DEFAULT_BLOG_TITLE,
+    DEFAULT_SETTINGS,
     getSessionSecret,
     isOwnerSetup,
     getOwnerHash,
@@ -81,5 +109,7 @@ module.exports = {
     getCopyright,
     saveCopyright,
     getOwnerName,
-    saveOwnerName
+    saveOwnerName,
+    getSettings,
+    saveSettings
 };

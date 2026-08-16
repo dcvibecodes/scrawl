@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.7.0**
+**Version 4.0.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,26 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.0.0
+
+#### Added
+
+- **Dedicated Settings page** (`/settings`) — a single, owner-only page consolidating all site configuration: landing page, theme, title, name, footer, and export.
+- **Configurable landing page** — choose what visitors see on the home page: Posts, Articles, or a Custom landing page.
+- **Enable/disable content types** — independently enable or disable Posts and Articles. Disabling hides the content from the menu and home page (data is never deleted).
+- **Enable/disable comments** — independently enable or disable comments on Posts and on Articles. Disabling hides the comment link and discussion section (comments are never deleted).
+- **Custom landing page** — a rich-text editor (same as the article composer) for building a custom home page, with an "Add content" / "Edit content" button for the owner. No comments on the custom page.
+- **New `/posts` route** — always shows the posts feed, regardless of the landing page setting.
+- **Menu tree structure** — "post archive" now appears as an indented sub-item of "posts" with a connecting line.
+- **Footer formatting** — the footer editor supports bold, italic, and links (rendered as gray underlined links, not blue). Includes a 2000-character limit with a live counter, and auto-expands as you type.
+- **Contextual random (dice) icon** — the dice icon now only appears on posts-related pages (posts feed, single post, post archive). It's hidden on articles, custom landing, and settings pages.
+
+#### Changed
+
+- **Menu reorganized** — order is now: home · articles · posts · post archive · comments · RSS · contact · settings · logout. Items appear only if the corresponding content type is enabled.
+- **"articles" removed from the header** — moved into the menu for a cleaner, more SaaS-like header (random · search · menu).
+- **Settings moved into the menu** — the scattered edit-title/edit-name/edit-footer/theme/export options are now consolidated on the `/settings` page.
 
 ### Version 3.7.0
 

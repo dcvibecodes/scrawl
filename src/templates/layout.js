@@ -1,8 +1,16 @@
 const { escapeHtml } = require('../utils/html');
-const { getCopyright, getBlogTitle } = require('../config');
+const { getCopyright, getBlogTitle, getSettings } = require('../config');
 
-const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta, pendingComments, pendingMessages }) =>  {
+const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta, pendingComments, pendingMessages, showRandom }) =>  {
     const copyrightText = copyright !== undefined ? copyright : getCopyright();
+    const settings = getSettings();
+    const showHome = true; // Home (landing page) always exists
+    const showPosts = settings.postsEnabled;
+    const showArticles = settings.articlesEnabled;
+    const showArchive = settings.postsEnabled;
+    const showRssPosts = settings.postsEnabled;
+    const showRssArticles = settings.articlesEnabled;
+    const showDice = showRandom && settings.postsEnabled;
     // Build social/SEO meta tags
     let metaTags = '';
     if (meta) {
@@ -51,7 +59,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-    <link rel="stylesheet" href="/styles.css?v=10">
+    <link rel="stylesheet" href="/styles.css?v=14">
     <script>(function(){var t=localStorage.getItem('theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})()</script>
 </head>
 <body>
@@ -64,6 +72,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
             </h1>
         </div>
         <div class="header-controls">
+            ${showDice ? `
             <a href="/random" class="nav-icon-btn random-btn" aria-label="Random" title="Random post">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="3"></rect>
@@ -76,7 +85,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <circle class="die-dot" data-pos="br" cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none"></circle>
                 </svg>
             </a>
-            <a href="/articles" class="nav-text-btn" title="Articles">articles</a>
+            ` : ''}
             <span class="inline-search" id="headerInlineSearch" style="margin:0;padding:0;">
                 <button type="button" class="search-icon-btn" id="searchOpenBtn" aria-label="Search" title="Search" style="margin-top:0;">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -95,16 +104,15 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     </svg>
                 </button>
                 <div class="menu-dropdown" id="menuDropdown">
-                    <a href="/archive">post archive</a>
-                    <a href="#" id="editBlogTitle">edit title</a>
-                    <a href="#" id="editOwnerName">edit name</a>
-                    <a href="#" id="editCopyright">edit footer</a>
-                    <a href="#" id="themeToggle">dark</a>
+                    <a href="/">home</a>
+                    ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
+                    ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
+                    ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
                     <a href="/comments">comments${pendingComments ? ` (${pendingComments})` : ''}</a>
-                    <a href="/feed/posts">rss: posts</a>
-                    <a href="/feed/articles">rss: articles</a>
-                    <a href="/api/export">export</a>
+                    ${showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : ''}
+                    ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
                     <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
+                    <a href="/settings">settings</a>
                     <a href="/logout">logout</a>
                 </div>
             </span>
@@ -118,10 +126,12 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     </svg>
                 </button>
                 <div class="menu-dropdown" id="menuDropdown">
-                    <a href="/archive">post archive</a>
-                    <a href="#" id="themeToggle">dark</a>
-                    <a href="/feed/posts">rss: posts</a>
-                    <a href="/feed/articles">rss: articles</a>
+                    <a href="/">home</a>
+                    ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
+                    ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
+                    ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
+                    ${showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : ''}
+                    ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
                     <a href="/contact">contact</a>
                     <a href="/login">login</a>
                 </div>
@@ -145,10 +155,13 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <div class="mobile-menu-backdrop" id="mobileMenuBackdrop"></div>
     <div class="mobile-menu" id="mobileMenu">
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
-        <a href="/archive">post archive</a>
+        <a href="/">home</a>
+        ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
+        ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
+        ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
         ${isOwner
-            ? '<a href="#" id="mobileEditTitle">edit title</a><a href="#" id="mobileEditOwnerName">edit name</a><a href="#" id="mobileEditCopyright">edit footer</a><a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/api/export">export</a><a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/logout">logout</a>'
-            : '<a href="#" id="mobileThemeToggle">dark</a><a href="/feed/posts">rss: posts</a><a href="/feed/articles">rss: articles</a><a href="/contact">contact</a><a href="/login">login</a>'
+            ? '<a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a><a href="#" id="mobileThemeToggle">dark</a>' + (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + '<a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/settings">settings</a><a href="/logout">logout</a>'
+            : '<a href="#" id="mobileThemeToggle">dark</a>' + (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + '<a href="/contact">contact</a><a href="/login">login</a>'
         }
     </div>
 

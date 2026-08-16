@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
-const { getBlogTitle, getOwnerName } = require('../config');
+const { getBlogTitle, getOwnerName, getSettings } = require('../config');
 const { escapeHtml, sanitizeArticleHtml, stripHtml, formatDate, generateId } = require('../utils/html');
 const { requireOwner } = require('../middleware/auth');
 const { renderCommentsSection } = require('../utils/comments');
@@ -203,13 +203,14 @@ router.get('/articles/:id', async (req, res) => {
 
         const ownerName = getOwnerName();
 
-        const commentsSection = renderCommentsSection({
+        const settings = getSettings();
+        const commentsSection = settings.commentsOnArticlesEnabled ? renderCommentsSection({
             targetId: article.id,
             targetType: 'article',
             comments,
             isOwner: req.isOwner,
             ownerName
-        });
+        }) : '';
 
         const dateStr = formatDate(article.timestamp);
         const fullDate = new Date(article.timestamp).toLocaleString();

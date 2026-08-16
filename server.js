@@ -12,6 +12,7 @@ const articlesRoutes = require('./src/routes/articles');
 const commentsRoutes = require('./src/routes/comments');
 const contactRoutes = require('./src/routes/contact');
 const feedsRoutes = require('./src/routes/feeds');
+const settingsRoutes = require('./src/routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.use(articlesRoutes);
 app.use(commentsRoutes);
 app.use(contactRoutes);
 app.use(feedsRoutes);
+app.use(settingsRoutes);
 
 // --- Start Server ---
 // Only listen when run directly (not when imported by tests)

@@ -16,6 +16,7 @@ const {
     SESSION_MAX_AGE
 } = require('../config');
 const { createSessionToken, requireOwner } = require('../middleware/auth');
+const { sanitizeFooterHtml } = require('../utils/html');
 
 // Setup route (first-time only)
 router.get('/setup', (req, res) => {
@@ -180,8 +181,9 @@ router.post('/api/blog-title', requireOwner, (req, res) => {
 
 router.post('/api/copyright', requireOwner, (req, res) => {
     const text = String(req.body.text || '').trim();
-    saveCopyright(text);
-    res.json({ success: true, text });
+    const sanitized = sanitizeFooterHtml(text);
+    saveCopyright(sanitized);
+    res.json({ success: true, text: sanitized });
 });
 
 router.post('/api/owner-name', requireOwner, (req, res) => {

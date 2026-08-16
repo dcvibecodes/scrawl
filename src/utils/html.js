@@ -58,6 +58,21 @@ function stripHtml(html) {
         .trim();
 }
 
+// Sanitize footer HTML: only allow b, i, em, strong, a (with href)
+function sanitizeFooterHtml(html) {
+    if (!html) return '';
+    return String(html)
+        // Strip all tags except allowed ones
+        .replace(/<(?!\/?(b|i|em|strong|a)\b)[^>]*>/gi, '')
+        // Remove attributes from b/i/em/strong
+        .replace(/<(b|i|em|strong)\s[^>]*>/gi, '<$1>')
+        // For <a>, keep only href attribute
+        .replace(/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
+        .replace(/<a\s+[^>]*href\s*=\s*'([^']*)'[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener">')
+        .replace(/<a(?!\s+href)[^>]*>/gi, '<a>')
+        .trim();
+}
+
 function escapeHtml(text) {
     return String(text)
         .replace(/&/g, '&amp;')
@@ -85,6 +100,7 @@ function generateId() {
 
 module.exports = {
     sanitizeArticleHtml,
+    sanitizeFooterHtml,
     stripHtml,
     escapeHtml,
     formatDate,
