@@ -229,7 +229,7 @@ font-weight: normal;
 .article-title .draft-badge { position: relative; top: -0.15em; }
 .article-meta { font-size: 0.75rem; color: var(--text-muted); opacity: 0.75; margin-bottom: 20px; }
 .article-list-item { padding-bottom: 6px; margin-bottom: 6px; }
-.article-list-item.options-visible { padding-bottom: 10px; margin-bottom: 10px; }
+.article-list-item.options-visible { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--separator-color); }
 .article-list-title { font-size: 0.95rem; font-weight: normal; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .article-list-title a { color: var(--text-muted); text-decoration: none; transition: color 0.2s ease; }
 .article-list-title a:hover { color: var(--text-main); }
