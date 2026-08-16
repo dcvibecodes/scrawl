@@ -18,6 +18,22 @@ function createIconSvg({ size = 512 } = {}) {
 </svg>`;
 }
 
+// Minimal Open Graph banner (1200x630): dark background + centered notepad glyph.
+function createOgSvg() {
+    const bg = '#1a1a1a';
+    const fg = '#e5e5e5';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="${bg}"/>
+  <g transform="translate(600 315)">
+    <rect x="-140" y="-160" width="280" height="320" rx="20" fill="none" stroke="${fg}" stroke-width="18"/>
+    <line x1="-95" y1="-70" x2="95" y2="-70" stroke="${fg}" stroke-width="14" stroke-linecap="round"/>
+    <line x1="-95" y1="-15" x2="65" y2="-15" stroke="${fg}" stroke-width="14" stroke-linecap="round"/>
+    <line x1="-95" y1="40" x2="30" y2="40" stroke="${fg}" stroke-width="14" stroke-linecap="round"/>
+    <line x1="-95" y1="95" x2="0" y2="95" stroke="${fg}" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>`;
+}
+
 async function generate() {
     let sharp;
     try {
@@ -29,8 +45,15 @@ async function generate() {
     }
 
     const darkSvg = createIconSvg();
+    const ogSvg = createOgSvg();
     fs.writeFileSync(path.join(publicDir, 'icon.svg'), darkSvg);
     fs.writeFileSync(path.join(publicDir, 'favicon.svg'), createIconSvg({ size: 32 }));
+
+    await sharp(Buffer.from(ogSvg))
+        .resize(1200, 630)
+        .png()
+        .toFile(path.join(publicDir, 'og-image.png'));
+    console.log('Created og-image.png (1200x630)');
 
     const sizes = [
         { name: 'icon-512.png', size: 512, svg: darkSvg },

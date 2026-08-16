@@ -310,7 +310,6 @@ router.get('/post/:id', async (req, res) => {
                     <a href="/post/${entry.id}" class="permalink" title="Permalink">#</a>
                     <span class="copy-link" onclick="copyPermalink(this, '${entry.id}')">copy text</span>
                     <span class="copy-link" onclick="copyPostLink(this, '${entry.id}')">copy link</span>
-                    <a href="/post/${entry.id}" class="copy-link">comment</a>
                     ${ownerActions}
                 </div>
             </div>

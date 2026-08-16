@@ -26,8 +26,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="${ogTitle}">
     <meta name="twitter:description" content="${ogDesc}">
-    <meta property="og:image" content="${ogUrl.endsWith('/') ? ogUrl.slice(0, -1) : ogUrl.split('/').slice(0, 3).join('/')}/icon-512.png">
-    <meta name="twitter:image" content="${ogUrl.endsWith('/') ? ogUrl.slice(0, -1) : ogUrl.split('/').slice(0, 3).join('/')}/icon-512.png">
+    <meta property="og:image" content="${ogUrl.endsWith('/') ? ogUrl.slice(0, -1) : ogUrl.split('/').slice(0, 3).join('/')}/og-image.png">
+    <meta name="twitter:image" content="${ogUrl.endsWith('/') ? ogUrl.slice(0, -1) : ogUrl.split('/').slice(0, 3).join('/')}/og-image.png">
     <link rel="canonical" href="${ogUrl}">`;
     }
     return `
