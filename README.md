@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.0.0**
+**Version 4.1.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,14 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.1.0
+
+#### Changed
+
+- **Footer editor uses normal font** — the footer text box now shows normal-size text while editing (matching the title and name editors). The rendered footer still displays in the small gray style.
+- **Inline saving feedback** — replaced all browser `alert()` pop-ups on the settings page with subtle inline status text ("Saving..." → "Saved" in muted gray, "Failed" in muted red) next to each save button.
+- **Real-time settings updates** — saving the title, name, or footer now updates the header, browser tab, owner comment names, and rendered footer immediately, without requiring a refresh.
 
 ### Version 4.0.0
 

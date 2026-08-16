@@ -80,6 +80,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <p class="settings-hint">The title shown at the top of your site and in the browser tab.</p>
                 <input type="text" id="settingsTitle" value="${escapeHtml(blogTitle)}" class="comment-author-input" style="max-width:100%;">
                 <button type="button" class="comment-submit-btn" onclick="saveTitle()">Save Title</button>
+                <span class="settings-status" id="titleStatus"></span>
             </div>
 
             <!-- Edit Name -->
@@ -88,6 +89,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <p class="settings-hint">Your display name, shown on your comments.</p>
                 <input type="text" id="settingsName" value="${escapeHtml(ownerName)}" class="comment-author-input" style="max-width:100%;">
                 <button type="button" class="comment-submit-btn" onclick="saveName()">Save Name</button>
+                <span class="settings-status" id="nameStatus"></span>
             </div>
 
             <!-- Edit Footer -->
@@ -102,6 +104,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <div id="settingsFooter" class="article-content-editor footer-editor" contenteditable="true" data-placeholder="Footer text...">${copyright}</div>
                 <div class="char-counter" id="footer-char-counter">0 / 2000 characters</div>
                 <button type="button" class="comment-submit-btn" onclick="saveFooter()">Save Footer</button>
+                <span class="settings-status" id="footerStatus"></span>
             </div>
 
             <!-- Export -->
@@ -156,8 +159,19 @@ router.get('/settings', requireOwner, (req, res) => {
             });
         }
 
+        function setStatus(id, text, isError) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = text;
+            el.style.color = isError ? '#d96b6b' : 'var(--text-muted)';
+            if (!isError) {
+                setTimeout(function() { el.textContent = ''; }, 2000);
+            }
+        }
+
         function saveSettings() {
             var landingPage = document.querySelector('input[name="landingPage"]:checked').value;
+            setStatus('settingsStatus', 'Saving...');
             fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -173,11 +187,11 @@ router.get('/settings', requireOwner, (req, res) => {
             .then(function(data) {
                 if (data.success) {
                     updateMenuVisibility();
-                    alert('Settings saved.');
+                    setStatus('settingsStatus', 'Saved');
                 }
-                else { alert('Failed to save settings.'); }
+                else { setStatus('settingsStatus', 'Failed', true); }
             })
-            .catch(function() { alert('Failed to save settings.'); });
+            .catch(function() { setStatus('settingsStatus', 'Failed', true); });
         }
         updateMenuVisibility();
 
@@ -198,7 +212,8 @@ router.get('/settings', requireOwner, (req, res) => {
         // Title
         function saveTitle() {
             var title = document.getElementById('settingsTitle').value.trim();
-            if (!title) { alert('Title cannot be empty.'); return; }
+            if (!title) { setStatus('titleStatus', 'Title cannot be empty.', true); return; }
+            setStatus('titleStatus', 'Saving...');
             fetch('/api/blog-title', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -206,16 +221,23 @@ router.get('/settings', requireOwner, (req, res) => {
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (data.success) { alert('Title saved.'); }
-                else { alert('Failed to save title.'); }
+                if (data.success) {
+                    // Update the header title and browser tab in real time
+                    var blogTitleEl = document.getElementById('blogTitle');
+                    if (blogTitleEl) blogTitleEl.textContent = data.title;
+                    document.title = data.title;
+                    setStatus('titleStatus', 'Saved');
+                }
+                else { setStatus('titleStatus', 'Failed', true); }
             })
-            .catch(function() { alert('Failed to save title.'); });
+            .catch(function() { setStatus('titleStatus', 'Failed', true); });
         }
 
         // Name
         function saveName() {
             var name = document.getElementById('settingsName').value.trim();
-            if (!name) { alert('Name cannot be empty.'); return; }
+            if (!name) { setStatus('nameStatus', 'Name cannot be empty.', true); return; }
+            setStatus('nameStatus', 'Saving...');
             fetch('/api/owner-name', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -223,10 +245,16 @@ router.get('/settings', requireOwner, (req, res) => {
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (data.success) { alert('Name saved.'); }
-                else { alert('Failed to save name.'); }
+                if (data.success) {
+                    // Update any owner comment author names in real time
+                    document.querySelectorAll('.comment-author').forEach(function(el) {
+                        if (el.dataset.isOwner === 'true') el.textContent = data.name;
+                    });
+                    setStatus('nameStatus', 'Saved');
+                }
+                else { setStatus('nameStatus', 'Failed', true); }
             })
-            .catch(function() { alert('Failed to save name.'); });
+            .catch(function() { setStatus('nameStatus', 'Failed', true); });
         }
 
         // Footer
@@ -287,6 +315,7 @@ router.get('/settings', requireOwner, (req, res) => {
         function saveFooter() {
             var el = document.getElementById('settingsFooter');
             var text = el.innerHTML;
+            setStatus('footerStatus', 'Saving...');
             fetch('/api/copyright', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -294,10 +323,15 @@ router.get('/settings', requireOwner, (req, res) => {
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
-                if (data.success) { alert('Footer saved.'); }
-                else { alert('Failed to save footer.'); }
+                if (data.success) {
+                    // Update the rendered footer in real time
+                    var footerEl = document.querySelector('.site-footer');
+                    if (footerEl) footerEl.innerHTML = data.text;
+                    setStatus('footerStatus', 'Saved');
+                }
+                else { setStatus('footerStatus', 'Failed', true); }
             })
-            .catch(function() { alert('Failed to save footer.'); });
+            .catch(function() { setStatus('footerStatus', 'Failed', true); });
         }
 
         // Save settings button
@@ -308,6 +342,10 @@ router.get('/settings', requireOwner, (req, res) => {
         saveBtn.style.marginTop = '10px';
         saveBtn.addEventListener('click', saveSettings);
         document.querySelector('.settings-section').appendChild(saveBtn);
+        var settingsStatus = document.createElement('span');
+        settingsStatus.className = 'settings-status';
+        settingsStatus.id = 'settingsStatus';
+        saveBtn.parentNode.appendChild(settingsStatus);
         </script>
     `;
 
