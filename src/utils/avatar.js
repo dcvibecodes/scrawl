@@ -1,14 +1,29 @@
-// Clean gender-neutral avatar (head + shoulders), monochrome via currentColor.
+// Pixel-art gender-neutral avatar (head + shoulders), monochrome via currentColor.
 const PIXEL_AVATAR_SVG = `<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
-<circle cx="6" cy="3.5" r="2.5"/>
-<path d="M2 11c0-2.2 1.8-4 4-4s4 1.8 4 4z"/>
+<rect x="4" y="1" width="4" height="1"/>
+<rect x="3" y="2" width="6" height="1"/>
+<rect x="3" y="3" width="6" height="1"/>
+<rect x="3" y="4" width="6" height="1"/>
+<rect x="5" y="5" width="2" height="1"/>
+<rect x="2" y="6" width="8" height="1"/>
+<rect x="1" y="7" width="10" height="1"/>
+<rect x="1" y="8" width="10" height="1"/>
+<rect x="1" y="9" width="10" height="1"/>
+<rect x="2" y="10" width="8" height="1"/>
 </svg>`;
 
-// Clean thought bubble (rounded cloud with tail and dot), monochrome via currentColor.
-const THOUGHT_BUBBLE_SVG = `<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true">
-<rect x="1" y="1" width="10" height="7" rx="2"/>
-<path d="M4 8v2l2-2z"/>
-<circle cx="6" cy="10.5" r="0.6"/>
+// Pixel-art thought bubble (rounded cloud with tail and trailing dot), subtle gray via --avatar-color.
+const THOUGHT_BUBBLE_SVG = `<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="var(--avatar-color)" aria-hidden="true">
+<rect x="2" y="1" width="8" height="1"/>
+<rect x="1" y="2" width="10" height="1"/>
+<rect x="1" y="3" width="10" height="1"/>
+<rect x="1" y="4" width="10" height="1"/>
+<rect x="1" y="5" width="10" height="1"/>
+<rect x="1" y="6" width="10" height="1"/>
+<rect x="2" y="7" width="8" height="1"/>
+<rect x="4" y="8" width="2" height="1"/>
+<rect x="5" y="9" width="1" height="1"/>
+<rect x="5" y="11" width="1" height="1"/>
 </svg>`;
 
 const ENTRY_AVATAR = `<div class="entry-avatar">${THOUGHT_BUBBLE_SVG}</div>`;
