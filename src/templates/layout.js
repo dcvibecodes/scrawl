@@ -113,6 +113,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
                     <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
                     <a href="/settings">settings</a>
+                    <a href="#" id="themeToggle">dark</a>
                     <a href="/logout">logout</a>
                 </div>
             </span>
@@ -133,6 +134,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     ${showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : ''}
                     ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
                     <a href="/contact">contact</a>
+                    <a href="#" id="themeToggle">dark</a>
                     <a href="/login">login</a>
                 </div>
             </span>
