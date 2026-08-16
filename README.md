@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 3.6.0**
+**Version 3.7.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,18 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 3.7.0
+
+#### Added
+
+- **Dedicated Open Graph image** — social shares (X/Twitter, Facebook, etc.) now use a proper 1200×630 banner (`og-image.png`) with the Scrawl notepad glyph on a dark background, instead of the square app icon. `og:image` and `twitter:image` meta tags point to it.
+- **Cache-busting on stylesheet** — the stylesheet link now includes a version query string (`/styles.css?v=8`) so browsers reliably fetch updated CSS after deploys, avoiding stale-cache issues.
+
+#### Changed
+
+- **Removed "comment" link on the post page** — the single-post view (`/post/:id`) no longer shows a "comment" action since the user is already on that page. The homepage entries still show it to navigate to the post.
+- **Article list separator** — when "show options" is toggled on, each article block (title + edit/unpublish/delete) is now separated by a subtle gray divider for easier scanning.
 
 ### Version 3.6.0
 
