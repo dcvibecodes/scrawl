@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.0**
+**Version 4.5.1**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -51,7 +51,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - Readers identify themselves with a "Discuss as" name — cached in browser localStorage indefinitely (no login required)
 - Nested replies with visual thread connectors (left border lines showing hierarchy)
 - Reply depth capped at 4 levels of indentation to preserve readability on mobile
-- When a post/article has no comments, a subtle "No comments yet. Be the first to comment" prompt is shown — clicking it reveals the discussion form
+- The Discussion section (header, form, and thread) is always visible, even when there are zero comments
 - "Comments cannot be edited after posting" hint for readers
 - Moderation: all reader comments require owner approval before they become visible to other readers
 - Owner comments are auto-approved and appear immediately
@@ -268,6 +268,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.1
+
+#### Changed
+
+- **Discussion section always visible** — the "No comments yet. Be the first to comment." prompt has been removed. The Discussion header, comment form, and thread now always show on posts and articles, even when there are zero comments.
 
 ### Version 4.5.0
 

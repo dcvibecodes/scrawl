@@ -47,17 +47,11 @@ function renderCommentsSection({ targetId, targetType, comments, isOwner, ownerN
     }
 
     const commentsHtml = buildCommentTree(comments);
-    const hasComments = comments.length > 0;
 
     return `
         <!-- Comments Section -->
         <div class="comments-section" style="margin-top:40px;">
-            ${hasComments ? '' : `
-            <div class="no-comments-prompt" id="noCommentsPrompt">
-                No comments yet. <a href="#" onclick="showCommentForm();return false;">Be the first to comment.</a>
-            </div>
-            `}
-            <div id="discussionArea" style="${hasComments ? '' : 'display:none;'}">
+            <div id="discussionArea">
                 <div style="font-size:1.01rem;color:var(--text-muted);margin-bottom:16px;">Discussion</div>
                 <div class="comment-form-wrapper" id="mainCommentForm">
                     <div class="comment-form-row">
@@ -82,14 +76,6 @@ function renderCommentsSection({ targetId, targetType, comments, isOwner, ownerN
         </div>
 
         <script>
-        function showCommentForm() {
-            var prompt = document.getElementById('noCommentsPrompt');
-            if (prompt) prompt.style.display = 'none';
-            var area = document.getElementById('discussionArea');
-            if (area) area.style.display = '';
-            var box = document.getElementById('commentContent');
-            if (box) box.focus();
-        }
         // Load saved discuss-as name from localStorage and auto-resize comment textarea
         (function() {
             ${isOwner ? '' : `var saved = localStorage.getItem('scrawl_discuss_as');
