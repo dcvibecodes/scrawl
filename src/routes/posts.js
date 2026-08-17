@@ -695,7 +695,12 @@ router.post('/add', requireOwner, async (req, res) => {
         await db.run('INSERT INTO entries (id, content, timestamp) VALUES (?, ?, ?)', [id, content, timestamp]);
         await db.run('INSERT INTO entries_fts (id, content) VALUES (?, ?)', [id, content]);
 
-        res.redirect('/');
+        // If the user posted from the /posts page, keep them there. Otherwise
+        // fall back to the home page (which may be the posts feed or a custom
+        // landing page depending on the landing page setting).
+        const referer = req.get('Referer') || '';
+        const redirectTo = referer.includes('/posts') ? '/posts' : '/';
+        res.redirect(redirectTo);
     } catch (err) {
         console.error(err);
         res.status(500).send('Error saving post.');
