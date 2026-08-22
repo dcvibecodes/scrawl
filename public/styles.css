@@ -2,7 +2,7 @@
 html { width: 100%; overflow-x: clip; }
 :root {
     --bg-body: #f5efe6;
-    --bg-card: #faf6ee;
+    --bg-card: #f5efe6;
     --text-main: #2c241b;
     --text-muted: #6b5c4c;
     --separator-color: #e8ddd0;

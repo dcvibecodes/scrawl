@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.2**
+**Version 4.5.3**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.3
+
+#### Changed
+
+- **Single background color** — cards/posts now use the exact same sepia background (`#f5efe6`) as the page, instead of the lighter `#faf6ee`. Scrawl now has one consistent background tone across the whole app (matching how the expense tracker theme treats its background).
 
 ### Version 4.5.2
 
