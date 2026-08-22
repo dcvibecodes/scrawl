@@ -174,13 +174,22 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <a href="#" id="backToTop" class="back-to-top" aria-label="Back to top">&uarr;</a>
     <script>
     // Open external links in a new tab; internal links navigate in-place (avoids PWA white flash)
+    // Applies to any user-authored rich-text content: article bodies, landing page content,
+    // and the footer. Landing page content is rendered inside .article-body, and comments/posts
+    // are plain text (escaped), so they need no link handling.
     document.addEventListener('DOMContentLoaded', function() {
-        var links = document.querySelectorAll('.article-body a');
-        for (var i = 0; i < links.length; i++) {
-            var link = links[i];
-            if (link.hostname && link.hostname !== window.location.hostname) {
-                link.setAttribute('target', '_blank');
-                link.setAttribute('rel', 'noopener');
+        var containers = document.querySelectorAll('.article-body, .site-footer');
+        for (var c = 0; c < containers.length; c++) {
+            var links = containers[c].querySelectorAll('a');
+            for (var i = 0; i < links.length; i++) {
+                var link = links[i];
+                if (link.hostname && link.hostname !== window.location.hostname) {
+                    link.setAttribute('target', '_blank');
+                    link.setAttribute('rel', 'noopener');
+                } else if (link.hasAttribute('target')) {
+                    link.removeAttribute('target');
+                    link.removeAttribute('rel');
+                }
             }
         }
     });

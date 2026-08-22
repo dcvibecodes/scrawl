@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.4**
+**Version 4.5.5**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.5
+
+#### Fixed
+
+- **Internal links open in the same window again** — links inside an article or the landing page that point to another page on the same site were incorrectly opening in a new tab. Older articles had `target="_blank"` stored directly in their HTML (from before the sanitizer stripped it), so those baked-in targets made same-site links open in a new window. The page now re-evaluates every link on load and strips `target` from internal links while keeping `target="_blank"` for external links — so internal navigation stays in the same tab and external links still open in a new window, automatically and consistently.
 
 ### Version 4.5.4
 
