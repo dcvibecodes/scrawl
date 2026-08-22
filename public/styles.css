@@ -1,11 +1,11 @@
 * { box-sizing: border-box; }
 html { width: 100%; overflow-x: clip; }
 :root {
-    --bg-body: #ffffff;
-    --bg-card: #ffffff;
-    --text-main: #333333;
-    --text-muted: #666666;
-    --separator-color: #eeeeee;
+    --bg-body: #f5efe6;
+    --bg-card: #faf6ee;
+    --text-main: #2c241b;
+    --text-muted: #6b5c4c;
+    --separator-color: #e8ddd0;
     --dp-color: #000000;
 }
 [data-theme="dark"] {

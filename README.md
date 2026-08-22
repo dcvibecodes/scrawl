@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.1**
+**Version 4.5.2**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.2
+
+#### Changed
+
+- **Sepia light theme** — the light theme's background, cards, text, and separator colors now use the warm sepia palette of the expense tracker (`#f5efe6` background, `#faf6ee` cards) instead of plain white. Dark theme is unchanged.
 
 ### Version 4.5.1
 
