@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.3**
+**Version 4.5.4**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -268,6 +268,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.4
+
+#### Fixed
+
+- **White edges when toggling back to light theme** — switching from dark to light now repaints the entire page sepia immediately. Previously, the theme toggle in `app.js` still set the page background to the old white (`#ffffff`) instead of the new sepia (`#f5efe6`), leaving white bars on the sides until the next page load.
 
 ### Version 4.5.3
 

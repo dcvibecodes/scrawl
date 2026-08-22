@@ -34,7 +34,7 @@
             var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             if (isDark) {
                 document.documentElement.removeAttribute('data-theme');
-                document.documentElement.style.backgroundColor = '#ffffff';
+                document.documentElement.style.backgroundColor = '#f5efe6';
                 mobileTheme.textContent = 'dark';
                 localStorage.setItem('theme', 'light');
             } else {
@@ -111,7 +111,7 @@
             var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
             if (isDark) {
                 document.documentElement.removeAttribute('data-theme');
-                document.documentElement.style.backgroundColor = '#ffffff';
+                document.documentElement.style.backgroundColor = '#f5efe6';
                 toggleBtn.textContent = 'dark';
                 localStorage.setItem('theme', 'light');
             } else {
