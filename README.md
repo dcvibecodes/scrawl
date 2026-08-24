@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.5**
+**Version 4.5.6**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -86,6 +86,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 ### Contact Page
 
 - Built-in contact form at `/contact` for visitors to send messages to the owner
+- Can be enabled/disabled from Settings — disabling hides it from the menu and blocks the page, but messages are never deleted (they reappear when re-enabled)
 - Fields: Name (required), Email (optional), Subject (optional), Message (required)
 - "Message sent" notification on successful submission
 - Owner sees accumulated messages listed latest-first below the form
@@ -268,6 +269,17 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.6
+
+#### Added
+
+- **Enable/disable contact page** — a new "Enable contact page" toggle in Settings. Disabling hides the contact link from the menu and blocks the `/contact` page (404), but existing messages are never deleted and reappear, count included, when re-enabled.
+
+#### Changed
+
+- **Clicking a hyperlink in the article/custom-page composer edits it instead of navigating** — while editing, clicking a link inside the composer now keeps the caret in the link (no navigation, no "unsaved changes" prompt), so you can use the toolbar's link button to edit, change, or remove the hyperlink.
+- **Settings save buttons show feedback on the button** — the Save Title/Name/Footer and Save Settings buttons now show "Saving..." → "Saved"/"Failed" on the button itself, matching the posts/articles save buttons. Validation errors (empty title/name) still appear inline next to the field.
 
 ### Version 4.5.5
 

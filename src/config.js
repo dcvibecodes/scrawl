@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = {
     articlesEnabled: true,
     commentsOnPostsEnabled: true,
     commentsOnArticlesEnabled: true,
+    contactEnabled: true,
     customLandingContent: ''
 };
 

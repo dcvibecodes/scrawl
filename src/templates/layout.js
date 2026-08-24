@@ -10,6 +10,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     const showArchive = settings.postsEnabled;
     const showRssPosts = settings.postsEnabled;
     const showRssArticles = settings.articlesEnabled;
+    const showContact = settings.contactEnabled;
     const showDice = showRandom && settings.postsEnabled;
     // Build social/SEO meta tags
     let metaTags = '';
@@ -111,7 +112,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     <a href="/comments">comments${pendingComments ? ` (${pendingComments})` : ''}</a>
                     ${showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : ''}
                     ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
-                    <a href="/contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>
+                    ${showContact ? `<a href="/contact" data-menu="contact">contact${pendingMessages ? ` (${pendingMessages})` : ''}</a>` : ''}
                     <a href="/settings">settings</a>
                     <a href="#" id="themeToggle">dark</a>
                     <a href="/logout">logout</a>
@@ -133,7 +134,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                     ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
                     ${showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : ''}
                     ${showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : ''}
-                    <a href="/contact">contact</a>
+                    ${showContact ? '<a href="/contact" data-menu="contact">contact</a>' : ''}
                     <a href="#" id="themeToggle">dark</a>
                     <a href="/login">login</a>
                 </div>
@@ -162,8 +163,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
         ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
         ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
         ${isOwner
-            ? '<a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a>' + (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + '<a href="/contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a><a href="/settings">settings</a><a href="#" id="mobileThemeToggle">dark</a><a href="/logout">logout</a>'
-            : (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + '<a href="/contact">contact</a><a href="#" id="mobileThemeToggle">dark</a><a href="/login">login</a>'
+            ? '<a href="/comments">comments' + (pendingComments ? ' (' + pendingComments + ')' : '') + '</a>' + (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + (showContact ? '<a href="/contact" data-menu="contact">contact' + (pendingMessages ? ' (' + pendingMessages + ')' : '') + '</a>' : '') + '<a href="/settings">settings</a><a href="#" id="mobileThemeToggle">dark</a><a href="/logout">logout</a>'
+            : (showRssPosts ? '<a href="/feed/posts" data-menu="rss-posts">rss: posts</a>' : '') + (showRssArticles ? '<a href="/feed/articles" data-menu="rss-articles">rss: articles</a>' : '') + (showContact ? '<a href="/contact" data-menu="contact">contact</a>' : '') + '<a href="#" id="mobileThemeToggle">dark</a><a href="/login">login</a>'
         }
     </div>
 

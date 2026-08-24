@@ -238,6 +238,45 @@ test('GET /contact shows messages to owner', async () => {
     assert.ok(res.text.includes('Just saying hi'));
 });
 
+test('GET /settings shows the contact enable checkbox', async () => {
+    const res = await agent.get('/settings');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.text.includes('id="contactEnabled"'));
+});
+
+test('GET /contact returns 404 when contact is disabled', async () => {
+    // Disable contact
+    const settings = getSettings();
+    settings.contactEnabled = false;
+    saveSettings(settings);
+
+    // Menu omits the contact link
+    const homeRes = await request(app).get('/');
+    assert.strictEqual(homeRes.status, 200);
+    assert.ok(!homeRes.text.includes('/contact'));
+    assert.ok(!homeRes.text.includes('data-menu="contact"'));
+
+    // Direct visit returns 404
+    const res = await request(app).get('/contact');
+    assert.strictEqual(res.status, 404);
+
+    // Messages are not purged
+    const ownerRes = await agent.get('/contact');
+    assert.strictEqual(ownerRes.status, 404);
+
+    // Re-enable and confirm the page + messages return
+    settings.contactEnabled = true;
+    saveSettings(settings);
+    const reenabled = await agent.get('/contact');
+    assert.strictEqual(reenabled.status, 200);
+    assert.ok(reenabled.text.includes('Just saying hi'));
+
+    // Restore default settings
+    settings.contactEnabled = undefined;
+    delete settings.contactEnabled;
+    saveSettings(settings);
+});
+
 test('GET /feed/posts returns RSS XML', async () => {
     const res = await request(app).get('/feed/posts');
     assert.strictEqual(res.status, 200);

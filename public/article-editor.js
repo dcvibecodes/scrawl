@@ -405,6 +405,27 @@
         return !!(title || content);
     }
 
+    // In edit mode, clicking a hyperlink inside the composer should edit the link,
+    // not navigate to it. Place the caret in the link so the toolbar link button
+    // can edit/remove it. This also prevents the browser from following the link.
+    function setupLinkClick() {
+        var editor = getEditor();
+        editor.addEventListener('click', function(e) {
+            var link = e.target.closest && e.target.closest('a');
+            if (!link || !editor.contains(link)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var sel = window.getSelection();
+            var range = document.createRange();
+            range.selectNodeContents(link);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            editor.focus();
+            updateToolbarState();
+        }, true);
+    }
+
     function setupUnsavedChanges() {
         window.addEventListener('beforeunload', function(e) {
             if (hasUnsavedChanges()) {
@@ -415,6 +436,10 @@
         document.addEventListener('click', function(e) {
             var link = e.target.closest('a');
             if (!link || !link.href) return;
+            // Clicks on links inside the composer are handled by setupLinkClick and
+            // should not be treated as navigation away from the editor.
+            var editor = getEditor();
+            if (editor && editor.contains(link)) return;
             if (link.getAttribute('href') === '#') return;
             if (link.onclick && link.getAttribute('onclick') && link.getAttribute('onclick').indexOf('confirmCancel') !== -1) return;
             if (hasUnsavedChanges()) {
@@ -518,6 +543,7 @@
         }
         setupKeydown();
         setupPaste();
+        setupLinkClick();
         setupUnsavedChanges();
         setupCounter();
     };

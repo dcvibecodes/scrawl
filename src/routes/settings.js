@@ -61,6 +61,11 @@ router.get('/settings', requireOwner, (req, res) => {
                         Enable comments on articles
                         <span class="settings-desc">Allow readers to comment on your articles. Disabling hides the discussion section.</span>
                     </label>
+                    <label>
+                        <input type="checkbox" id="contactEnabled" ${settings.contactEnabled ? 'checked' : ''}>
+                        Enable contact page
+                        <span class="settings-desc">Show your contact page so visitors can send you messages. Disabling hides it from the menu (messages are never deleted).</span>
+                    </label>
                 </div>
             </div>
 
@@ -114,6 +119,7 @@ router.get('/settings', requireOwner, (req, res) => {
         var articlesEnabled = document.getElementById('articlesEnabled');
         var commentsOnPostsEnabled = document.getElementById('commentsOnPostsEnabled');
         var commentsOnArticlesEnabled = document.getElementById('commentsOnArticlesEnabled');
+        var contactEnabled = document.getElementById('contactEnabled');
 
         function updateLandingOptions() {
             var postsRadio = document.querySelector('input[name="landingPage"][value="posts"]');
@@ -140,6 +146,7 @@ router.get('/settings', requireOwner, (req, res) => {
         function updateMenuVisibility() {
             var showPosts = postsEnabled.checked;
             var showArticles = articlesEnabled.checked;
+            var showContact = contactEnabled.checked;
             // Desktop dropdown + mobile drawer menu items
             document.querySelectorAll('[data-menu="posts"], [data-menu="archive"], [data-menu="rss-posts"]').forEach(function(el) {
                 el.style.display = showPosts ? '' : 'none';
@@ -147,8 +154,13 @@ router.get('/settings', requireOwner, (req, res) => {
             document.querySelectorAll('[data-menu="articles"], [data-menu="rss-articles"]').forEach(function(el) {
                 el.style.display = showArticles ? '' : 'none';
             });
+            document.querySelectorAll('[data-menu="contact"]').forEach(function(el) {
+                el.style.display = showContact ? '' : 'none';
+            });
         }
 
+        // Feedback on the save button itself (matching posts/articles), leaving
+        // the status span for validation errors only.
         function setStatus(id, text, isError) {
             var el = document.getElementById(id);
             if (!el) return;
@@ -159,9 +171,15 @@ router.get('/settings', requireOwner, (req, res) => {
             }
         }
 
+        function setBtn(btn, label, disabled) {
+            if (btn) { btn.textContent = label; btn.disabled = !!disabled; }
+        }
+
         function saveSettings() {
             var landingPage = document.querySelector('input[name="landingPage"]:checked').value;
-            setStatus('settingsStatus', 'Saving...');
+            var btn = saveBtn;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
             fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -170,18 +188,23 @@ router.get('/settings', requireOwner, (req, res) => {
                     postsEnabled: postsEnabled.checked,
                     articlesEnabled: articlesEnabled.checked,
                     commentsOnPostsEnabled: commentsOnPostsEnabled.checked,
-                    commentsOnArticlesEnabled: commentsOnArticlesEnabled.checked
+                    commentsOnArticlesEnabled: commentsOnArticlesEnabled.checked,
+                    contactEnabled: contactEnabled.checked
                 })
             })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
                     updateMenuVisibility();
-                    setStatus('settingsStatus', 'Saved');
+                    setBtn(btn, 'Saved', false);
                 }
-                else { setStatus('settingsStatus', 'Failed', true); }
+                else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
             })
-            .catch(function() { setStatus('settingsStatus', 'Failed', true); });
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
         }
         updateMenuVisibility();
 
@@ -189,7 +212,9 @@ router.get('/settings', requireOwner, (req, res) => {
         function saveTitle() {
             var title = document.getElementById('settingsTitle').value.trim();
             if (!title) { setStatus('titleStatus', 'Title cannot be empty.', true); return; }
-            setStatus('titleStatus', 'Saving...');
+            var btn = event.target;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
             fetch('/api/blog-title', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -202,18 +227,24 @@ router.get('/settings', requireOwner, (req, res) => {
                     var blogTitleEl = document.getElementById('blogTitle');
                     if (blogTitleEl) blogTitleEl.textContent = data.title;
                     document.title = data.title;
-                    setStatus('titleStatus', 'Saved');
+                    setBtn(btn, 'Saved', false);
                 }
-                else { setStatus('titleStatus', 'Failed', true); }
+                else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
             })
-            .catch(function() { setStatus('titleStatus', 'Failed', true); });
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
         }
 
         // Name
         function saveName() {
             var name = document.getElementById('settingsName').value.trim();
             if (!name) { setStatus('nameStatus', 'Name cannot be empty.', true); return; }
-            setStatus('nameStatus', 'Saving...');
+            var btn = event.target;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
             fetch('/api/owner-name', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -226,11 +257,15 @@ router.get('/settings', requireOwner, (req, res) => {
                     document.querySelectorAll('.comment-author').forEach(function(el) {
                         if (el.dataset.isOwner === 'true') el.textContent = data.name;
                     });
-                    setStatus('nameStatus', 'Saved');
+                    setBtn(btn, 'Saved', false);
                 }
-                else { setStatus('nameStatus', 'Failed', true); }
+                else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
             })
-            .catch(function() { setStatus('nameStatus', 'Failed', true); });
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
         }
 
         // Footer
@@ -291,7 +326,9 @@ router.get('/settings', requireOwner, (req, res) => {
         function saveFooter() {
             var el = document.getElementById('settingsFooter');
             var text = el.innerHTML;
-            setStatus('footerStatus', 'Saving...');
+            var btn = event.target;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
             fetch('/api/copyright', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -303,11 +340,15 @@ router.get('/settings', requireOwner, (req, res) => {
                     // Update the rendered footer in real time
                     var footerEl = document.querySelector('.site-footer');
                     if (footerEl) footerEl.innerHTML = data.text;
-                    setStatus('footerStatus', 'Saved');
+                    setBtn(btn, 'Saved', false);
                 }
-                else { setStatus('footerStatus', 'Failed', true); }
+                else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
             })
-            .catch(function() { setStatus('footerStatus', 'Failed', true); });
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
         }
 
         // Save settings button
@@ -318,10 +359,6 @@ router.get('/settings', requireOwner, (req, res) => {
         saveBtn.style.marginTop = '10px';
         saveBtn.addEventListener('click', saveSettings);
         document.querySelector('.settings-section').appendChild(saveBtn);
-        var settingsStatus = document.createElement('span');
-        settingsStatus.className = 'settings-status';
-        settingsStatus.id = 'settingsStatus';
-        saveBtn.parentNode.appendChild(settingsStatus);
         </script>
     `;
 
@@ -337,7 +374,7 @@ router.get('/settings', requireOwner, (req, res) => {
 
 // Save settings API (owner only)
 router.post('/api/settings', requireOwner, (req, res) => {
-    const { landingPage, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled } = req.body;
+    const { landingPage, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled, contactEnabled } = req.body;
     const settings = getSettings();
     if (landingPage === 'posts' || landingPage === 'articles' || landingPage === 'custom') {
         settings.landingPage = landingPage;
@@ -346,6 +383,7 @@ router.post('/api/settings', requireOwner, (req, res) => {
     if (typeof articlesEnabled === 'boolean') settings.articlesEnabled = articlesEnabled;
     if (typeof commentsOnPostsEnabled === 'boolean') settings.commentsOnPostsEnabled = commentsOnPostsEnabled;
     if (typeof commentsOnArticlesEnabled === 'boolean') settings.commentsOnArticlesEnabled = commentsOnArticlesEnabled;
+    if (typeof contactEnabled === 'boolean') settings.contactEnabled = contactEnabled;
     saveSettings(settings);
     res.json({ success: true });
 });

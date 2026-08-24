@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
-const { getBlogTitle } = require('../config');
+const { getBlogTitle, getSettings } = require('../config');
 const { requireOwner } = require('../middleware/auth');
 const { checkRateLimit, generateSpamToken, validateSpamToken, RATE_LIMIT_MAX_CONTACT } = require('../middleware/rateLimit');
 const { escapeHtml, formatDate, generateId } = require('../utils/html');
@@ -10,6 +10,9 @@ const { escapeHtml, formatDate, generateId } = require('../utils/html');
 // Contact page
 router.get('/contact', async (req, res) => {
     try {
+        const settings = getSettings();
+        if (!settings.contactEnabled) return res.status(404).send('Contact page is disabled.');
+
         const db = getDb();
         let messagesHTML = '';
         if (req.isOwner) {
