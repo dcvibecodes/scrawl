@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.6**
+**Version 4.5.7**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -117,6 +117,7 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - Editable site title (menu → edit title)
 - Editable owner display name (menu → edit name) — propagates to all comments
 - Editable footer/copyright text (menu → edit footer)
+- Owner home page — choose where you (the owner) land when opening the app (Same as visitors / Posts / Articles), independent of the public landing page
 - Light and dark themes (preference saved in browser)
 - Light theme by default
 
@@ -269,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.7
+
+#### Added
+
+- **Owner home page** — a new "Your own home page" setting (owner only) in Settings lets you choose where you land when you open the app: Same as visitors (default), Posts, or Articles. This is independent of the public landing page, so the owner can land directly on their writing surface (e.g. when launching the PWA) while visitors still see the configured landing page. Options respect the posts/articles enable toggles — a disabled content type's option is hidden.
 
 ### Version 4.5.6
 

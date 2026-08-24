@@ -16,7 +16,8 @@ const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_BLOG_TITLE = 'Scrawl';
 const DEFAULT_SETTINGS = {
-    landingPage: 'posts',      // 'posts' | 'articles' | 'custom'
+    landingPage: 'posts',      // 'posts' | 'articles' | 'custom'  (public homepage for visitors)
+    ownerHome: 'default',      // 'default' | 'posts' | 'articles' (owner's landing page)
     postsEnabled: true,
     articlesEnabled: true,
     commentsOnPostsEnabled: true,

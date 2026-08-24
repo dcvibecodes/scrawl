@@ -255,6 +255,18 @@ router.get('/', async (req, res) => {
 
     const settings = getSettings();
 
+    // The owner can set their own home page (posts or articles) so they land on
+    // their writing surface instead of the public landing page. Visitors always
+    // see the configured landing page.
+    if (req.isOwner) {
+        if (settings.ownerHome === 'articles' && settings.articlesEnabled) {
+            return res.redirect('/articles');
+        }
+        if (settings.ownerHome === 'posts' && settings.postsEnabled) {
+            return res.redirect('/posts');
+        }
+    }
+
     if (settings.landingPage === 'articles' && settings.articlesEnabled) {
         return res.redirect('/articles');
     }

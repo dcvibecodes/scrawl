@@ -351,6 +351,62 @@ test('GET /?q= searches posts even when landing page is custom', async () => {
     saveSettings(settings);
 });
 
+test('GET / redirects owner to /posts when ownerHome is posts', async () => {
+    const settings = getSettings();
+    settings.landingPage = 'custom';
+    settings.customLandingContent = '<p>Custom for visitors</p>';
+    settings.ownerHome = 'posts';
+    saveSettings(settings);
+
+    // Owner is redirected to /posts
+    const ownerRes = await agent.get('/');
+    assert.strictEqual(ownerRes.status, 302);
+    assert.strictEqual(ownerRes.headers.location, '/posts');
+
+    // Visitor still sees the custom landing page
+    const visitorRes = await request(app).get('/');
+    assert.strictEqual(visitorRes.status, 200);
+    assert.ok(visitorRes.text.includes('Custom for visitors'));
+
+    // Restore
+    settings.ownerHome = 'default';
+    settings.landingPage = 'posts';
+    settings.customLandingContent = '';
+    saveSettings(settings);
+});
+
+test('GET / redirects owner to /articles when ownerHome is articles', async () => {
+    const settings = getSettings();
+    settings.landingPage = 'custom';
+    settings.customLandingContent = '<p>Custom for visitors</p>';
+    settings.ownerHome = 'articles';
+    saveSettings(settings);
+
+    const ownerRes = await agent.get('/');
+    assert.strictEqual(ownerRes.status, 302);
+    assert.strictEqual(ownerRes.headers.location, '/articles');
+
+    // Visitor still sees the custom landing page
+    const visitorRes = await request(app).get('/');
+    assert.strictEqual(visitorRes.status, 200);
+    assert.ok(visitorRes.text.includes('Custom for visitors'));
+
+    // Restore
+    settings.ownerHome = 'default';
+    settings.landingPage = 'posts';
+    settings.customLandingContent = '';
+    saveSettings(settings);
+});
+
+test('GET /settings renders the owner home page options', async () => {
+    const res = await agent.get('/settings');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.text.includes('name="ownerHome"'));
+    assert.ok(res.text.includes('value="default"'));
+    assert.ok(res.text.includes('value="posts"'));
+    assert.ok(res.text.includes('value="articles"'));
+});
+
 test('GET /random redirects to a post', async () => {
     const res = await request(app).get('/random');
     assert.strictEqual(res.status, 302);

@@ -39,6 +39,24 @@ router.get('/settings', requireOwner, (req, res) => {
                     </label>
                 </div>
                 <div class="settings-option">
+                    <p class="settings-hint" style="margin-bottom:8px;">Your own home page (owner only) — where you land when you open the app, instead of the public landing page.</p>
+                    <label>
+                        <input type="radio" name="ownerHome" value="default" ${settings.ownerHome === 'default' || !settings.ownerHome ? 'checked' : ''}>
+                        Same as visitors
+                        <span class="settings-desc">Land on whatever home page visitors see.</span>
+                    </label>
+                    <label class="${settings.postsEnabled ? '' : 'settings-disabled'}">
+                        <input type="radio" name="ownerHome" value="posts" ${settings.ownerHome === 'posts' ? 'checked' : ''} ${settings.postsEnabled ? '' : 'disabled'}>
+                        Posts
+                        <span class="settings-desc">Land directly on your posts feed, ready to write.</span>
+                    </label>
+                    <label class="${settings.articlesEnabled ? '' : 'settings-disabled'}">
+                        <input type="radio" name="ownerHome" value="articles" ${settings.ownerHome === 'articles' ? 'checked' : ''} ${settings.articlesEnabled ? '' : 'disabled'}>
+                        Articles
+                        <span class="settings-desc">Land directly on your articles list, ready to write.</span>
+                    </label>
+                </div>
+                <div class="settings-option">
                     <label>
                         <input type="checkbox" id="postsEnabled" ${settings.postsEnabled ? 'checked' : ''}>
                         Enable posts
@@ -138,6 +156,24 @@ router.get('/settings', requireOwner, (req, res) => {
             if (selected && selected.disabled) {
                 customRadio.checked = true;
             }
+
+            // Owner home page options mirror the same enabled/disabled state
+            var ownerPostsRadio = document.querySelector('input[name="ownerHome"][value="posts"]');
+            var ownerArticlesRadio = document.querySelector('input[name="ownerHome"][value="articles"]');
+            var ownerDefaultRadio = document.querySelector('input[name="ownerHome"][value="default"]');
+            var ownerPostsLabel = ownerPostsRadio.closest('label');
+            var ownerArticlesLabel = ownerArticlesRadio.closest('label');
+
+            ownerPostsRadio.disabled = !postsEnabled.checked;
+            ownerArticlesRadio.disabled = !articlesEnabled.checked;
+            ownerPostsLabel.classList.toggle('settings-disabled', !postsEnabled.checked);
+            ownerArticlesLabel.classList.toggle('settings-disabled', !articlesEnabled.checked);
+
+            // If the owner's selected home is now disabled, fall back to "Same as visitors"
+            var ownerSelected = document.querySelector('input[name="ownerHome"]:checked');
+            if (ownerSelected && ownerSelected.disabled) {
+                ownerDefaultRadio.checked = true;
+            }
         }
         postsEnabled.addEventListener('change', updateLandingOptions);
         articlesEnabled.addEventListener('change', updateLandingOptions);
@@ -177,6 +213,7 @@ router.get('/settings', requireOwner, (req, res) => {
 
         function saveSettings() {
             var landingPage = document.querySelector('input[name="landingPage"]:checked').value;
+            var ownerHome = document.querySelector('input[name="ownerHome"]:checked').value;
             var btn = saveBtn;
             var original = btn ? btn.textContent : '';
             setBtn(btn, 'Saving...', true);
@@ -185,6 +222,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     landingPage: landingPage,
+                    ownerHome: ownerHome,
                     postsEnabled: postsEnabled.checked,
                     articlesEnabled: articlesEnabled.checked,
                     commentsOnPostsEnabled: commentsOnPostsEnabled.checked,
@@ -374,10 +412,13 @@ router.get('/settings', requireOwner, (req, res) => {
 
 // Save settings API (owner only)
 router.post('/api/settings', requireOwner, (req, res) => {
-    const { landingPage, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled, contactEnabled } = req.body;
+    const { landingPage, ownerHome, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled, contactEnabled } = req.body;
     const settings = getSettings();
     if (landingPage === 'posts' || landingPage === 'articles' || landingPage === 'custom') {
         settings.landingPage = landingPage;
+    }
+    if (ownerHome === 'default' || ownerHome === 'posts' || ownerHome === 'articles') {
+        settings.ownerHome = ownerHome;
     }
     if (typeof postsEnabled === 'boolean') settings.postsEnabled = postsEnabled;
     if (typeof articlesEnabled === 'boolean') settings.articlesEnabled = articlesEnabled;
