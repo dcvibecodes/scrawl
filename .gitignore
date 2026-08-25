@@ -2,3 +2,7 @@ node_modules/
 data/
 .DS_Store
 feed.atom
+
+# Agent rules (personal — do not commit)
+AGENTS.md
+.clinerules
