@@ -731,7 +731,7 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
                 <button type="button" data-cmd="underline" onclick="execCmd('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
                 <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
                 <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code"><></button>
-                <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link">&#128279;</button>
+                <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"></path></svg></button>
                 <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                 <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                 <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>

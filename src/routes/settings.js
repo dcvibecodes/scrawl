@@ -112,7 +112,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <div class="article-editor-toolbar" style="position:static;">
                     <button type="button" onclick="execFooterCmd('bold')" title="Bold"><b>B</b></button>
                     <button type="button" onclick="execFooterCmd('italic')" title="Italic"><i>I</i></button>
-                    <button type="button" onclick="execFooterLink()" title="Insert link">&#128279;</button>
+                    <button type="button" onclick="execFooterLink()" title="Insert link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"></path></svg></button>
                 </div>
                 <div id="settingsFooter" class="article-content-editor footer-editor" contenteditable="true" data-placeholder="Footer text...">${copyright}</div>
                 <div class="char-counter" id="footer-char-counter">0 / 2000 characters</div>
