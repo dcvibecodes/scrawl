@@ -238,6 +238,8 @@ font-weight: normal;
 /* ===== Article styles ===== */
 .article-editor-toolbar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; padding: 6px 0; border-bottom: 1px solid var(--separator-color); position: sticky; top: 0; background: var(--bg-body); z-index: 100; }
 .article-editor-toolbar button { background: none !important; border: 1px solid var(--separator-color); border-radius: 4px; padding: 4px 10px; margin: 0; font-size: 0.85rem; color: var(--text-main); cursor: pointer; min-width: 32px; flex-shrink: 0; }
+.article-editor-toolbar button svg { display: block; }
+.article-editor-toolbar button:has(svg) { display: inline-flex; align-items: center; justify-content: center; padding-left: 6px; padding-right: 6px; }
 .article-editor-toolbar button:hover { background: var(--separator-color) !important; }
 .article-editor-toolbar button.active { background: var(--text-main) !important; color: var(--bg-body) !important; border-color: var(--text-main) !important; }
 [data-theme="dark"] .article-editor-toolbar button { background: none !important; color: var(--text-main); border-color: var(--separator-color); }
