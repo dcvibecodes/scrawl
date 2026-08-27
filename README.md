@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.6.0**
+**Version 4.6.1**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -271,11 +271,17 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 
 ## Changelog
 
+### Version 4.6.1
+
+#### Fixed
+
+- **iOS image upload + caption/undo fixes** — HEIC/HEIF from iPhone now accepted, `accept="image/*"` prevents the Safari pattern error on the photo picker, and the editor's figure insertion no longer uses `Range`/`Selection` APIs that WebKit rejects on `contenteditable="false"` figures. Caption placeholder (“Add a caption (optional)”) now reliably reappears after clearing, and deleting an image no longer leaves stray text or merges the following heading. Single `Cmd+Z` undo for image removal.
+
 ### Version 4.6.0
 
 #### Added
 
-- **Images in articles & landing page** — the article composer (and the identical custom-landing editor) gains an Image button (inline SVG icon): pick a file, or simply **drag & drop / paste** a screenshot straight into the editor. Uploads are processed server-side with sharp — GPS/EXIF metadata stripped, huge images downsized to 2000px, everything recompressed — then stored as `<figure><img>` so each picture spans the full content width with no borders. Deleting an image (✕ button in the editor), deleting the post/article, or overwriting the landing page **deletes the file and frees the space**; a boot-time sweep catches any orphans after a 24-hour grace period. Upload cap: 10 MB; PNG/JPEG/WebP/GIF.
+- **Images in articles & landing page** — the article composer (and the identical custom-landing editor) gains an Image button (inline SVG icon): pick a file, or simply **drag & drop / paste** a screenshot straight into the editor. Uploads are processed server-side with sharp — GPS/EXIF metadata stripped, huge images downsized to 2000px, everything recompressed — then stored as `<figure><img><figcaption>` so each picture spans the full content width with no borders and an optional left-aligned caption. Deleting an image (✕ button in the editor), deleting the post/article, or overwriting the landing page **deletes the file and frees the space**; a boot-time sweep catches any orphans after a 24-hour grace period. Upload cap: 10 MB; PNG/JPEG/WebP/GIF/HEIC.
 
 ### Version 4.5.9
 

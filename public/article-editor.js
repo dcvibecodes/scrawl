@@ -581,33 +581,49 @@
     // de-linked by dragging — only the figcaption itself remains editable.
     function enhanceFigures() {
         var editor = getEditor();
-        editor.querySelectorAll('figure:not([data-figure-enh])').forEach(function(fig) {
+        var figs = editor.querySelectorAll('figure:not([data-figure-enh])');
+        figs.forEach(function(fig) {
             fig.setAttribute('data-figure-enh', '1');
-            fig.setAttribute('contenteditable', 'false');
-            var cap = fig.querySelector('figcaption');
-            if (!cap) {
-                cap = document.createElement('figcaption');
-                cap.setAttribute('data-placeholder', 'Add a caption (optional)');
-                fig.appendChild(cap);
-            } else if (!cap.getAttribute('data-placeholder')) {
-                cap.setAttribute('data-placeholder', 'Add a caption (optional)');
-            }
-            cap.setAttribute('contenteditable', 'true');
-            var img = fig.querySelector('img');
-            if (img) img.setAttribute('draggable', 'false');
-            var img = fig.querySelector('img');
-            var del = document.createElement('span');
-            del.className = 'figure-delete';
-            del.textContent = '\u00d7';
-            del.title = 'Remove image';
-            del.addEventListener('click', function(ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                pushFigureUndo(fig);
-                fig.parentNode.removeChild(fig);
-                getEditor().focus();
-            });
-            fig.appendChild(del);
+            // iOS WebKit throws "The string did not match the expected pattern" when
+            // contenteditable attributes are mutated synchronously after insertion
+            // (selection recalculation on non-editable nodes). Defer and skip no-ops.
+            setTimeout(function() {
+                try {
+                    var cap = fig.querySelector('figcaption');
+                    if (!cap) {
+                        cap = document.createElement('figcaption');
+                        cap.setAttribute('data-placeholder', 'Add a caption (optional)');
+                        fig.appendChild(cap);
+                    }
+                    if (cap.getAttribute('data-placeholder') !== 'Add a caption (optional)') {
+                        cap.setAttribute('data-placeholder', 'Add a caption (optional)');
+                    }
+                    if (fig.getAttribute('contenteditable') !== 'false') {
+                        fig.setAttribute('contenteditable', 'false');
+                    }
+                    if (cap.getAttribute('contenteditable') !== 'true') {
+                        cap.setAttribute('contenteditable', 'true');
+                    }
+                    var img = fig.querySelector('img');
+                    if (img && img.getAttribute('draggable') !== 'false') img.setAttribute('draggable', 'false');
+                    if (!fig.querySelector('.figure-delete')) {
+                        var del = document.createElement('span');
+                        del.className = 'figure-delete';
+                        del.textContent = '\u00d7';
+                        del.title = 'Remove image';
+                        del.addEventListener('click', function(ev) {
+                            ev.preventDefault();
+                            ev.stopPropagation();
+                            pushFigureUndo(fig);
+                            if (fig.parentNode) fig.parentNode.removeChild(fig);
+                            try { getEditor().focus(); } catch (e) {}
+                        });
+                        fig.appendChild(del);
+                    }
+                } catch (e) {
+                    console.warn('[figures] enhance deferred step failed:', e.message);
+                }
+            }, 0);
         });
         normalizeCaptions();
     }
