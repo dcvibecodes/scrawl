@@ -585,7 +585,11 @@
         if (!imageInput) {
             imageInput = document.createElement('input');
             imageInput.type = 'file';
-            imageInput.accept = 'image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif';
+            // iOS Safari can't parse MIME types like image/heic in accept and shows
+            // "The string did not match the expected pattern" when picking from the
+            // photo library. Use image/* which iOS handles natively; type filtering
+            // happens in handleImageFiles anyway.
+            imageInput.accept = 'image/*';
             imageInput.style.display = 'none';
             document.body.appendChild(imageInput);
             imageInput.addEventListener('change', function() {

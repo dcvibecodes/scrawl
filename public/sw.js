@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scrawl-v25';
+const CACHE_NAME = 'scrawl-v26';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
