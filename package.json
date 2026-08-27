@@ -1,6 +1,6 @@
 {
   "name": "scrawl",
-  "version": "4.5.9",
+  "version": "4.6.0",
   "description": "A personal publishing space for quick posts and long-form articles",
   "main": "index.js",
   "scripts": {
@@ -15,11 +15,12 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "multer": "^2.0.2",
+    "sharp": "^0.34.5",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
-    "sharp": "^0.34.5",
     "supertest": "^7.2.2"
   }
 }

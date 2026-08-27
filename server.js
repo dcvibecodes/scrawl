@@ -13,6 +13,8 @@ const commentsRoutes = require('./src/routes/comments');
 const contactRoutes = require('./src/routes/contact');
 const feedsRoutes = require('./src/routes/feeds');
 const settingsRoutes = require('./src/routes/settings');
+const imagesRoutes = require('./src/routes/images');
+const imageStore = require('./src/services/images');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,11 +41,15 @@ app.use(commentsRoutes);
 app.use(contactRoutes);
 app.use(feedsRoutes);
 app.use(settingsRoutes);
+app.use(imagesRoutes);
 
 // --- Start Server ---
 // Only listen when run directly (not when imported by tests)
 if (require.main === module) {
     initDatabase().then(() => {
+        imageStore.ensureUploadsDir();
+        // Safety net: purge image files orphaned by deleted/edited content
+        imageStore.reconcileOrphans().catch((e) => console.log('Image reconcile skipped:', e.message));
         app.listen(PORT, () => {
             console.log('Scrawl running at http://localhost:' + PORT);
             const { isOwnerSetup } = require('./src/config');

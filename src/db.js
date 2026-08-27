@@ -108,6 +108,19 @@ async function initDatabase() {
         await db.exec(`ALTER TABLE comments_new RENAME TO comments`);
     }
 
+    // Uploaded article/landing images: rows mirror files under data/uploads/
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS images (
+            id TEXT PRIMARY KEY,
+            filename TEXT UNIQUE NOT NULL,
+            mime TEXT NOT NULL,
+            bytes INTEGER NOT NULL,
+            width INTEGER,
+            height INTEGER,
+            created_at INTEGER NOT NULL
+        )
+    `);
+
     await db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
         id UNINDEXED,

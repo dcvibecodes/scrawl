@@ -18,11 +18,83 @@
         return document.getElementById('article-content');
     }
 
+    function normalizeCaptions() {
+        var editor = getEditor();
+        editor.querySelectorAll('figcaption').forEach(function(cap) {
+            // Browser leaves a <br> when caption is cleared — normalize to truly empty so :empty placeholder shows
+            if (!cap.textContent.trim() && cap.innerHTML.trim() !== '') {
+                cap.innerHTML = '';
+            }
+        });
+    }
+
     // Ensure text is always inside a <p> block for proper paragraph behavior
     function setupKeydown() {
         var editor = getEditor();
         editor.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.shiftKey) {
+            // Caption is single-line: Enter or Shift+Enter inside figcaption exits to a new paragraph after the figure
+            var capNode = e.target.closest ? e.target.closest('figcaption') : null;
+            if (!capNode) {
+                var selTmp = window.getSelection();
+                if (selTmp.rangeCount) {
+                    var n = selTmp.anchorNode;
+                    while (n && n !== editor) {
+                        if (n.nodeType === 1 && n.tagName === 'FIGCAPTION') { capNode = n; break; }
+                        n = n.parentNode;
+                    }
+                }
+            }
+            if (capNode && e.key === 'Enter') {
+                e.preventDefault();
+                var fig = capNode.parentElement;
+                var p = document.createElement('p');
+                p.innerHTML = '<br>';
+                fig.parentNode.insertBefore(p, fig.nextSibling);
+                var range = document.createRange();
+                var sel2 = window.getSelection();
+                range.setStart(p, 0);
+                range.collapse(true);
+                sel2.removeAllRanges();
+                sel2.addRange(range);
+                normalizeCaptions();
+                return;
+            }
+            if (e.key === 'Backspace' && !e.ctrlKey && !e.metaKey) {
+                var sel = window.getSelection();
+                if (sel.rangeCount && sel.isCollapsed && sel.anchorOffset === 0) {
+                    var node = sel.anchorNode;
+                    // If caret is inside an empty figcaption, keep placeholder — don't delete the figure
+                    var figCaption = node.nodeType === 1 && node.tagName === 'FIGCAPTION' ? node : (node.parentNode && node.parentNode.tagName === 'FIGCAPTION' ? node.parentNode : null);
+                    if (figCaption) {
+                        if (!figCaption.textContent.trim()) {
+                            e.preventDefault();
+                            figCaption.innerHTML = '';
+                            return;
+                        }
+                        // Backspace at start of non-empty caption should not delete the image
+                        return;
+                    }
+                    // Otherwise, at start of a block (p, h2, etc.) right after a figure → delete the figure
+                    var block = node.nodeType === 3 ? node.parentNode : node;
+                    while (block && block.parentNode !== editor) block = block.parentNode;
+                    if (block && block.previousElementSibling && block.previousElementSibling.tagName === 'FIGURE') {
+                        e.preventDefault();
+                        var fig = block.previousElementSibling;
+                        var delRange = document.createRange();
+                        delRange.selectNode(fig);
+                        sel.removeAllRanges();
+                        sel.addRange(delRange);
+                        document.execCommand('delete', false, null);
+                        var caretRange = document.createRange();
+                        caretRange.setStart(block, 0);
+                        caretRange.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(caretRange);
+                        getEditor().focus();
+                        return;
+                    }
+                }
+            } else if (e.key === 'Enter' && e.shiftKey) {
                 // Shift+Enter: insert line break
                 e.preventDefault();
                 if (!document.execCommand('insertLineBreak', false, null)) {
@@ -35,7 +107,7 @@
                     var node = sel.anchorNode;
                     var isInsideBlock = false;
                     while (node && node !== editor) {
-                        if (node.nodeType === 1 && /^(P|H[1-6]|DIV|BLOCKQUOTE|LI)$/.test(node.tagName)) {
+                        if (node.nodeType === 1 && /^(P|H[1-6]|DIV|BLOCKQUOTE|LI|FIGCAPTION)$/.test(node.tagName)) {
                             isInsideBlock = true;
                             break;
                         }
@@ -75,14 +147,16 @@
             } else {
                 editor.classList.remove('is-empty');
             }
+            normalizeCaptions();
         });
+        editor.addEventListener('keyup', function() { normalizeCaptions(); });
     }
 
     // Edit mode: wrap old bare content in <p> tags (old articles stored with <br>)
     function wrapBareContent() {
         var editor = getEditor();
         var html = editor.innerHTML.trim();
-        if (html && html !== '<br>' && !html.match(/^<(p|h[1-6]|div|blockquote|ol|ul)/i)) {
+        if (html && html !== '<br>' && !html.match(/^<(p|h[1-6]|div|blockquote|ol|ul|figure)/i)) {
             editor.innerHTML = '<p>' + html + '</p>';
         }
     }
@@ -276,6 +350,29 @@
     // Strip external styling on paste, preserving only allowed formatting and structure
     function setupPaste() {
         getEditor().addEventListener('paste', function(e) {
+            // Caption is single-line: paste inside figcaption as plain text, no line breaks
+            var selPaste = window.getSelection();
+            var capPaste = null;
+            if (selPaste.rangeCount) {
+                var pn = selPaste.anchorNode;
+                while (pn && pn !== getEditor()) {
+                    if (pn.nodeType === 1 && pn.tagName === 'FIGCAPTION') { capPaste = pn; break; }
+                    pn = pn.parentNode;
+                }
+            }
+            if (capPaste) {
+                e.preventDefault();
+                var txtCap = (e.clipboardData.getData('text/plain') || '').replace(/\s+/g, ' ').trim();
+                if (txtCap) document.execCommand('insertText', false, txtCap);
+                return;
+            }
+            // Image from clipboard (screenshot, copied photo) → upload instead of HTML/text
+            var clipFiles = e.clipboardData && e.clipboardData.files;
+            if (clipFiles && clipFiles.length) {
+                e.preventDefault();
+                handleImageFiles(clipFiles);
+                return;
+            }
             e.preventDefault();
             var html = e.clipboardData.getData('text/html');
             var text = e.clipboardData.getData('text/plain');
@@ -329,6 +426,183 @@
         });
     }
 
+    // ===== Images =====
+    // Upload via toolbar button, drag-drop, or clipboard paste. Inserted markup:
+    //   <figure><img src="/images/<uuid>.<ext>" alt=""></figure>
+    var savedRange = null;
+    var imageInput = null;
+    var uploadsInFlight = 0;
+
+    function saveSelection() {
+        var sel = window.getSelection();
+        if (sel.rangeCount > 0 && getEditor().contains(sel.anchorNode)) {
+            savedRange = sel.getRangeAt(0).cloneRange();
+        }
+    }
+
+    function restoreSelection() {
+        var editor = getEditor();
+        editor.focus();
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        if (savedRange) {
+            sel.addRange(savedRange);
+            savedRange = null;
+        }
+    }
+
+    function figureHtml(result) {
+        return '<figure contenteditable="false"><img src="' + result.url + '" alt="" draggable="false"><figcaption contenteditable="true" data-placeholder="Add a caption (optional)"></figcaption></figure>';
+    }
+
+    function insertFigure(result) {
+        restoreSelection();
+        var editor = getEditor();
+        var sel = window.getSelection();
+        var fig = document.createElement('figure');
+        fig.setAttribute('contenteditable', 'false');
+        fig.innerHTML = '<img src="' + result.url + '" alt="" draggable="false"><figcaption contenteditable="true" data-placeholder="Add a caption (optional)"></figcaption>';
+        var inserted = false;
+        if (sel.rangeCount) {
+            var range = sel.getRangeAt(0);
+            var container = range.startContainer;
+            if (container.nodeType === 3) container = container.parentNode;
+            var block = container;
+            while (block && block.parentNode !== editor) block = block.parentNode;
+            if (block && block.parentNode === editor) {
+                block.parentNode.insertBefore(fig, block.nextSibling);
+                inserted = true;
+            } else if (range.startContainer === editor) {
+                var refNode = editor.childNodes[range.startOffset] || null;
+                editor.insertBefore(fig, refNode);
+                inserted = true;
+            } else {
+                try { range.insertNode(fig); inserted = true; } catch (e) {}
+            }
+        }
+        if (!inserted) editor.appendChild(fig);
+        // Place caret after the figure (before next block like H2) without adding an extra blank line
+        try {
+            var range2 = document.createRange();
+            range2.setStartAfter(fig);
+            range2.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range2);
+            editor.focus();
+        } catch (e) {}
+        enhanceFigures();
+    }
+
+    function handleImageFiles(fileList) {
+        var files = Array.prototype.slice.call(fileList || []);
+        var images = files.filter(function(f) {
+            return /^image\//.test(f.type) && f.size <= 10 * 1024 * 1024;
+        });
+        if (!images.length) return;
+        // Chain uploads so figures land in drag/paste order
+        var chain = Promise.resolve();
+        images.forEach(function(file) { chain = chain.then(function() { return uploadImageFile(file, null); }); });
+    }
+
+    function uploadImageFile(file, btn) {
+        saveSelection();
+        var originalTitle = btn ? btn.title : '';
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
+        uploadsInFlight++;
+        return fetch('/api/images', { method: 'POST', body: (function() {
+            var fd = new FormData();
+            fd.append('image', file);
+            return fd;
+        })() })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) throw new Error(data.error || 'Upload failed.');
+            insertFigure(data);
+        })
+        .catch(function(err) {
+            alert(err.message || 'Image upload failed.');
+        })
+        .finally(function() {
+            uploadsInFlight--;
+            if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.title = originalTitle; }
+        });
+    }
+
+    window.editorInsertImage = function(btn) {
+        saveSelection();
+        if (!imageInput) {
+            imageInput = document.createElement('input');
+            imageInput.type = 'file';
+            imageInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
+            imageInput.style.display = 'none';
+            document.body.appendChild(imageInput);
+            imageInput.addEventListener('change', function() {
+                if (imageInput.files && imageInput.files[0]) {
+                    uploadImageFile(imageInput.files[0], null);
+                }
+                imageInput.value = '';
+            });
+        }
+        imageInput.click();
+    };
+
+    // Add the ✕ remove overlay to every figure inside the editor (edit-time only;
+    // the button itself is never stored in the saved HTML). Also ensure every
+    // figure has a figcaption with placeholder so "Add a caption (optional)" always
+    // shows when empty, even for figures saved without a caption.
+    // Figures are made non-editable as a whole so the caption cannot be
+    // de-linked by dragging — only the figcaption itself remains editable.
+    function enhanceFigures() {
+        var editor = getEditor();
+        editor.querySelectorAll('figure:not([data-figure-enh])').forEach(function(fig) {
+            fig.setAttribute('data-figure-enh', '1');
+            fig.setAttribute('contenteditable', 'false');
+            var cap = fig.querySelector('figcaption');
+            if (!cap) {
+                cap = document.createElement('figcaption');
+                cap.setAttribute('data-placeholder', 'Add a caption (optional)');
+                fig.appendChild(cap);
+            } else if (!cap.getAttribute('data-placeholder')) {
+                cap.setAttribute('data-placeholder', 'Add a caption (optional)');
+            }
+            cap.setAttribute('contenteditable', 'true');
+            var img = fig.querySelector('img');
+            if (img) img.setAttribute('draggable', 'false');
+            var img = fig.querySelector('img');
+            var del = document.createElement('span');
+            del.className = 'figure-delete';
+            del.textContent = '\u00d7';
+            del.title = 'Remove image';
+            del.addEventListener('click', function(ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                // Use execCommand so a single Cmd+Z restores the figure
+                var range = document.createRange();
+                range.selectNode(fig);
+                var selDel = window.getSelection();
+                selDel.removeAllRanges();
+                selDel.addRange(range);
+                document.execCommand('delete', false, null);
+                getEditor().focus();
+            });
+            fig.appendChild(del);
+        });
+        normalizeCaptions();
+    }
+
+    function setupImageDrop() {
+        var editor = getEditor();
+        editor.addEventListener('dragover', function(e) { e.preventDefault(); });
+        editor.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                saveSelection();
+                restoreSelection();
+                handleImageFiles(e.dataTransfer.files);
+            }
+        });
+    }
+
     // Toggle between visual (contenteditable) and HTML source mode
     window.toggleHtmlMode = function() {
         var editor = getEditor();
@@ -372,7 +646,26 @@
         if (htmlMode && htmlTextarea) {
             return htmlTextarea.value.trim();
         }
-        return getEditor().innerHTML.trim();
+        var editor = getEditor();
+        var clone = editor.cloneNode(true);
+        clone.querySelectorAll('.figure-delete').forEach(function(el) { el.remove(); });
+        clone.querySelectorAll('figure').forEach(function(fig) {
+            fig.removeAttribute('data-figure-enh');
+            fig.removeAttribute('contenteditable');
+            var cap = fig.querySelector('figcaption');
+            if (cap) {
+                cap.removeAttribute('contenteditable');
+                if (!cap.textContent.trim()) cap.remove();
+                else cap.removeAttribute('data-placeholder');
+            }
+            var img = fig.querySelector('img');
+            if (img) img.removeAttribute('draggable');
+        });
+        // Remove stray placeholder paragraphs left by the old drag bug (figure + <p>Add a caption...</p>)
+        clone.querySelectorAll('figure + p').forEach(function(p) {
+            if (p.textContent.trim() === 'Add a caption (optional)') p.remove();
+        });
+        return clone.innerHTML.trim();
     }
 
     function getTextContent() {
@@ -543,8 +836,10 @@
         }
         setupKeydown();
         setupPaste();
+        setupImageDrop();
         setupLinkClick();
         setupUnsavedChanges();
         setupCounter();
+        enhanceFigures();
     };
 })();

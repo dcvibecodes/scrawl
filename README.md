@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.9**
+**Version 4.6.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -270,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.6.0
+
+#### Added
+
+- **Images in articles & landing page** — the article composer (and the identical custom-landing editor) gains an Image button (inline SVG icon): pick a file, or simply **drag & drop / paste** a screenshot straight into the editor. Uploads are processed server-side with sharp — GPS/EXIF metadata stripped, huge images downsized to 2000px, everything recompressed — then stored as `<figure><img>` so each picture spans the full content width with no borders. Deleting an image (✕ button in the editor), deleting the post/article, or overwriting the landing page **deletes the file and frees the space**; a boot-time sweep catches any orphans after a 24-hour grace period. Upload cap: 10 MB; PNG/JPEG/WebP/GIF.
 
 ### Version 4.5.9
 

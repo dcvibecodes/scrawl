@@ -4,9 +4,10 @@ const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
 const { isOwnerSetup, getBlogTitle, getOwnerName, getSettings, saveSettings } = require('../config');
 const { requireOwner } = require('../middleware/auth');
-const { escapeHtml, stripHtml, formatDate, generateId, sanitizeArticleHtml } = require('../utils/html');
+const { escapeHtml, stripHtml, formatDate, generateId, sanitizeArticleHtml, extractImageRefs } = require('../utils/html');
 const { ENTRY_AVATAR } = require('../utils/avatar');
 const { renderCommentsSection } = require('../utils/comments');
+const imageStore = require('../services/images');
 
 const PAGE_SIZE = 50;
 
@@ -732,6 +733,7 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
                 <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
                 <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code"><></button>
                 <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"></path></svg></button>
+                <button type="button" onclick="editorInsertImage(this)" title="Insert image"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg></button>
                 <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                 <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                 <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
@@ -742,14 +744,14 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
                 <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">&#60;/&#62;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your landing page content...">${content}</div>
-            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
+            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item · Image button, drag-drop, or paste inserts a picture</div>
             <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                 <button type="button" onclick="saveLanding()">Save</button>
                 <a href="/" class="back-link" style="margin-left:10px;">cancel</a>
             </div>
         </form>
-        <script src="/article-editor.js"></script>
+        <script src="/article-editor.js?v=35"></script>
         <script>
         initArticleEditor({ mode: 'landing' });
         function saveLanding() {
@@ -782,27 +784,38 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
 });
 
 // Save custom landing content (owner only)
-router.post('/api/landing', requireOwner, (req, res) => {
+router.post('/api/landing', requireOwner, async (req, res) => {
     const { content } = req.body;
     const settings = getSettings();
-    settings.customLandingContent = String(content || '');
+    const newContent = String(content || '');
+    // Free disk space: purge images removed by this overwrite
+    const removed = extractImageRefs(settings.customLandingContent)
+        .filter((id) => !extractImageRefs(newContent).includes(id));
+    settings.customLandingContent = newContent;
     saveSettings(settings);
+    await imageStore.gcImageRefs(removed);
     res.json({ success: true });
 });
 
 // Delete custom landing content (owner only)
-router.post('/api/landing/delete', requireOwner, (req, res) => {
+router.post('/api/landing/delete', requireOwner, async (req, res) => {
     const settings = getSettings();
+    const removed = extractImageRefs(settings.customLandingContent);
     settings.customLandingContent = '';
     saveSettings(settings);
+    await imageStore.gcImageRefs(removed);
     res.json({ success: true });
 });
 
 router.post('/delete/:id', requireOwner, async (req, res) => {
     try {
         const db = getDb();
+        const entry = await db.get('SELECT content FROM entries WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM entries WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM entries_fts WHERE id = ?', [req.params.id]);
+
+        // Free disk space: purge images that lived only in this post
+        if (entry) await imageStore.gcImageRefs(extractImageRefs(entry.content));
 
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
             return res.json({ success: true });

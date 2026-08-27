@@ -3,9 +3,10 @@ const router = express.Router();
 const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
 const { getBlogTitle, getOwnerName, getSettings } = require('../config');
-const { escapeHtml, sanitizeArticleHtml, stripHtml, formatDate, generateId } = require('../utils/html');
+const { escapeHtml, sanitizeArticleHtml, stripHtml, formatDate, generateId, extractImageRefs } = require('../utils/html');
 const { requireOwner } = require('../middleware/auth');
 const { renderCommentsSection } = require('../utils/comments');
+const imageStore = require('../services/images');
 
 // List articles
 router.get('/articles', async (req, res) => {
@@ -119,6 +120,7 @@ router.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
                 <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code">&lt;&gt;</button>
                 <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"></path></svg></button>
+                <button type="button" onclick="editorInsertImage(this)" title="Insert image"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg></button>
                 <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                 <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                 <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
@@ -129,7 +131,7 @@ router.get('/articles/new', requireOwner, (req, res) => {
                 <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">&#60;/&#62;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article..."></div>
-            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
+            <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item · Image button, drag-drop, or paste inserts a picture</div>
             <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
             <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                 <button type="button" onclick="submitArticle('published')">Publish</button>
@@ -137,7 +139,7 @@ router.get('/articles/new', requireOwner, (req, res) => {
                 <a href="/articles" class="back-link" style="margin-left:10px;" onclick="if(!confirmCancel())return false;articleSaved=true;">cancel</a>
             </div>
         </form>
-        <script src="/article-editor.js"></script>
+        <script src="/article-editor.js?v=35"></script>
         <script>initArticleEditor({ mode: 'new' });</script>
     `;
 
@@ -321,6 +323,7 @@ router.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <button type="button" data-cmd="strikeThrough" onclick="execCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
                     <button type="button" data-cmd="code" onclick="execInlineCode()" title="Inline code">&lt;&gt;</button>
                     <button type="button" data-cmd="link" onclick="insertLink()" title="Insert link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.71"></path></svg></button>
+                <button type="button" onclick="editorInsertImage(this)" title="Insert image"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg></button>
                     <button type="button" data-cmd="h2" onclick="execHeading('h2')" title="Heading 2">H2</button>
                     <button type="button" data-cmd="h3" onclick="execHeading('h3')" title="Heading 3">H3</button>
                     <button type="button" data-cmd="insertOrderedList" onclick="execCmd('insertOrderedList')" title="Numbered list">1.</button>
@@ -331,7 +334,7 @@ router.get('/articles/:id/edit', requireOwner, async (req, res) => {
                 <button type="button" onclick="toggleHtmlMode()" title="HTML source mode" id="htmlModeBtn">&#60;/&#62;</button>
             </div>
             <div id="article-content" class="article-content-editor" contenteditable="true" data-placeholder="Write your article...">${article.content}</div>
-                <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item</div>
+                <div class="editor-hint">Enter = new paragraph · Shift+Enter or ↵ button = line break · Tab = indent list item · Image button, drag-drop, or paste inserts a picture</div>
                 <div class="char-counter" id="article-char-counter">0 words &middot; 0 characters</div>
                 <div class="publish-row" style="display:flex;gap:10px;align-items:baseline;">
                     <button type="button" onclick="updateArticle('published')">
@@ -341,7 +344,7 @@ router.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <a href="/articles/${article.id}" class="back-link" style="margin-left:10px;" onclick="if(!articleSaved&&!confirm('You have unsaved changes. Discard?'))return false;articleSaved=true;">cancel</a>
                 </div>
             </form>
-            <script src="/article-editor.js"></script>
+            <script src="/article-editor.js?v=35"></script>
             <script>initArticleEditor({ mode: 'edit', articleId: '${article.id}', isDraft: ${isDraft} });</script>
         `;
 
@@ -368,6 +371,7 @@ router.put('/articles/:id', requireOwner, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Title and content required.' });
         }
 
+        const oldRow = await db.get('SELECT content FROM articles WHERE id = ?', [req.params.id]);
         const sanitizedContent = sanitizeArticleHtml(content);
         const articleStatus = status === 'draft' ? 'draft' : 'published';
 
@@ -388,6 +392,14 @@ router.put('/articles/:id', requireOwner, async (req, res) => {
             [title.trim(), stripHtml(sanitizedContent), req.params.id]
         );
 
+        // GC images removed from the article (undo-friendly: files stay until save)
+        if (oldRow) {
+            const removed = extractImageRefs(oldRow.content).filter(function(id) {
+                return extractImageRefs(sanitizedContent).indexOf(id) === -1;
+            });
+            await imageStore.gcImageRefs(removed);
+        }
+
         res.json({ success: true });
     } catch (err) {
         console.error(err);
@@ -399,9 +411,13 @@ router.put('/articles/:id', requireOwner, async (req, res) => {
 router.post('/articles/:id/delete', requireOwner, async (req, res) => {
     try {
         const db = getDb();
+        const article = await db.get('SELECT content FROM articles WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM articles WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM articles_fts WHERE id = ?', [req.params.id]);
         await db.run('DELETE FROM comments WHERE article_id = ?', [req.params.id]);
+
+        // Free disk space: purge images that lived only in this article
+        if (article) await imageStore.gcImageRefs(extractImageRefs(article.content));
 
         if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
             return res.json({ success: true });

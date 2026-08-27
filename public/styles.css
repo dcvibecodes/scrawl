@@ -1,5 +1,18 @@
 * { box-sizing: border-box; }
 html { width: 100%; overflow-x: clip; }
+
+/* Article/landing images: full content width, no borders */
+.article-body figure, .article-content-editor figure { margin: 20px 0; }
+.article-body figure img, .article-content-editor figure img { max-width: 100%; height: auto; display: block; border: none; }
+.article-body figcaption, .article-content-editor figcaption { font-size: 0.85rem; color: var(--text-muted); text-align: left; margin-top: 6px; line-height: 1.4; }
+.article-body figcaption:empty { display: none; }
+.article-content-editor figcaption:empty::before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
+.article-content-editor figcaption:has(> br:only-child)::before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
+.article-content-editor figcaption { min-height: 1.2em; outline: none; }
+.article-content-editor figcaption:has(> br:only-child) { color: transparent; }
+/* Edit-time-only remove overlay (never stored in saved HTML) */
+.article-content-editor figure { position: relative; }
+.article-content-editor .figure-delete { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; line-height: 22px; text-align: center; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; cursor: pointer; font-size: 16px; user-select: none; }
 :root {
     --bg-body: #f5efe6;
     --bg-card: #f5efe6;
