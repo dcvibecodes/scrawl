@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { layoutTemplate } = require('../templates/layout');
 const { getDb } = require('../db');
-const { getBlogTitle, getOwnerName, getCopyright, getSettings, saveSettings } = require('../config');
+const { getBlogTitle, getOwnerName, getCopyright, getSettings, saveSettings, getOwnerUser } = require('../config');
 const { requireOwner } = require('../middleware/auth');
 const { escapeHtml } = require('../utils/html');
 
@@ -10,6 +10,7 @@ const { escapeHtml } = require('../utils/html');
 router.get('/settings', requireOwner, (req, res) => {
     const settings = getSettings();
     const ownerName = getOwnerName();
+    const ownerUser = getOwnerUser();
     const blogTitle = getBlogTitle();
     const copyright = getCopyright();
 
@@ -122,6 +123,15 @@ router.get('/settings', requireOwner, (req, res) => {
                 <input type="text" id="settingsTitle" value="${escapeHtml(blogTitle)}" class="comment-author-input" style="max-width:100%;">
                 <button type="button" class="comment-submit-btn" onclick="saveTitle()">Save Title</button>
                 <span class="settings-status" id="titleStatus"></span>
+            </div>
+
+            <!-- Account -->
+            <div class="settings-section">
+                <h3>Account</h3>
+                <p class="settings-hint">${ownerUser ? `Your login username is <b>${escapeHtml(ownerUser)}</b>. ` : 'No username yet — '}logging in requires this username and your password${ownerUser ? '' : ' once it\'s saved'}.</p>
+                <input type="text" id="settingsUsername" value="${escapeHtml(ownerUser)}" placeholder="your-username" required minlength="3" maxlength="30" autocomplete="username" class="comment-author-input" style="max-width:100%;">
+                <button type="button" class="comment-submit-btn" onclick="saveUsername()">Save Username</button>
+                <span class="settings-status" id="usernameStatus"></span>
             </div>
 
             <!-- Edit Name -->
@@ -302,6 +312,33 @@ router.get('/settings', requireOwner, (req, res) => {
             .then(function(data) {
                 if (data.success) { setBtn(btn, 'Saved', false); }
                 else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            })
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
+        }
+
+        // Username
+        function saveUsername() {
+            var username = document.getElementById('settingsUsername').value.trim();
+            if (!username) { setStatus('usernameStatus', 'Username cannot be empty.', true); return; }
+            var btn = event.target;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
+            fetch('/api/owner-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) { setBtn(btn, 'Saved', false); }
+                else {
+                    setBtn(btn, 'Failed', false);
+                    if (data.error) setStatus('usernameStatus', data.error, true);
+                }
                 setTimeout(function() { setBtn(btn, original, false); }, 2000);
             })
             .catch(function() {

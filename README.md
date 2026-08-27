@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.8**
+**Version 4.5.9**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -270,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.9
+
+#### Added
+
+- **Owner username** — Setup now asks for a username (3–30 characters: letters, numbers, dashes, stored lowercase) alongside the password, and login requires both once a username exists. Existing installs are unaffected until a username is set: they keep password-only login and can add one anytime in Settings → Account (with Saving/Saved feedback). The username comparison is case-insensitive, failed logins never reveal whether it was the username or password that was wrong, and new `POST /api/owner-user` endpoint stores it in `data/owner-user.txt`.
 
 ### Version 4.5.8
 

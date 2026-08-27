@@ -1,7 +1,9 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
 const request = require('supertest');
-const { app, setupTestDb, cleanupTestData, makeOldSpamToken } = require('./helpers');
+const { app, setupTestDb, cleanupTestData, makeOldSpamToken, TEST_DATA_DIR } = require('./helpers');
 const { getSettings, saveSettings } = require('../src/config');
 
 const A = String.fromCharCode(38); // '&'
@@ -23,14 +25,15 @@ test('GET / redirects to /setup when no owner password exists', async () => {
     assert.strictEqual(res.headers.location, '/setup');
 });
 
-test('POST /setup creates owner password and sets session cookie', async () => {
+test('POST /setup creates owner account and sets session cookie', async () => {
     const res = await agent
         .post('/setup')
         .type('form')
-        .send({ password: 'test-password-123', confirm: 'test-password-123' });
+        .send({ username: 'testowner', password: 'test-password-123', confirm: 'test-password-123' });
     assert.strictEqual(res.status, 302);
     assert.strictEqual(res.headers.location, '/');
     assert.ok(res.headers['set-cookie'] && res.headers['set-cookie'].length > 0);
+    assert.ok(fs.existsSync(path.join(TEST_DATA_DIR, 'owner-user.txt')));
 });
 
 test('GET / returns 200 with blog title after setup', async () => {
@@ -419,28 +422,89 @@ test('GET /archive shows post archive', async () => {
     assert.ok(res.text.includes('Post Archive'));
 });
 
-test('GET /login shows login page', async () => {
+test('GET /login shows username field when one is configured', async () => {
     const res = await request(app).get('/login');
     assert.strictEqual(res.status, 200);
     assert.ok(res.text.includes('Owner Login'));
+    assert.ok(res.text.includes('name="username"'));
 });
 
 test('POST /login with wrong password redirects with error', async () => {
     const res = await request(app)
         .post('/login')
         .type('form')
-        .send({ password: 'wrong-password' });
+        .send({ username: 'testowner', password: 'wrong-password' });
     assert.strictEqual(res.status, 302);
     assert.strictEqual(res.headers.location, '/login?error=1');
 });
 
-test('POST /login with correct password redirects to home', async () => {
+test('POST /login with correct password but no username redirects with error', async () => {
     const res = await request(app)
         .post('/login')
         .type('form')
         .send({ password: 'test-password-123' });
     assert.strictEqual(res.status, 302);
+    assert.strictEqual(res.headers.location, '/login?error=1');
+});
+
+test('POST /login with wrong username redirects with error', async () => {
+    const res = await request(app)
+        .post('/login')
+        .type('form')
+        .send({ username: 'not-the-owner', password: 'test-password-123' });
+    assert.strictEqual(res.status, 302);
+    assert.strictEqual(res.headers.location, '/login?error=1');
+});
+
+test('POST /login with correct username and password redirects to home', async () => {
+    const res = await request(app)
+        .post('/login')
+        .type('form')
+        .send({ username: 'TestOwner', password: 'test-password-123' });
+    assert.strictEqual(res.status, 302);
     assert.strictEqual(res.headers.location, '/');
+});
+
+test('POST /api/owner-user requires owner auth', async () => {
+    const res = await request(app)
+        .post('/api/owner-user')
+        .type('form')
+        .send({ username: 'sneaky-user' });
+    assert.strictEqual(res.status, 403);
+});
+
+test('POST /api/owner-user rejects invalid usernames', async () => {
+    const res = await agent
+        .post('/api/owner-user')
+        .type('json')
+        .send({ username: 'Bad User!' });
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.success, false);
+});
+
+test('POST /api/owner-user saves a normalized username (owner)', async () => {
+    const res = await agent
+        .post('/api/owner-user')
+        .type('json')
+        .send({ username: 'Renamed-Owner' });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.username, 'renamed-owner');
+});
+
+test('Legacy installs without a username keep password-only login', async () => {
+    fs.unlinkSync(path.join(TEST_DATA_DIR, 'owner-user.txt'));
+
+    const pageRes = await request(app).get('/login');
+    assert.strictEqual(pageRes.status, 200);
+    assert.ok(!pageRes.text.includes('name="username"'));
+
+    const loginRes = await request(app)
+        .post('/login')
+        .type('form')
+        .send({ password: 'test-password-123' });
+    assert.strictEqual(loginRes.status, 302);
+    assert.strictEqual(loginRes.headers.location, '/');
 });
 
 test('GET / serves styles.css and app.js as static assets', async () => {

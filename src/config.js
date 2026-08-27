@@ -11,6 +11,7 @@ const SECRET_FILE = path.join(DATA_DIR, 'session.secret');
 const BLOG_TITLE_FILE = path.join(DATA_DIR, 'blog-title.txt');
 const COPYRIGHT_FILE = path.join(DATA_DIR, 'copyright.txt');
 const OWNER_NAME_FILE = path.join(DATA_DIR, 'owner-name.txt');
+const OWNER_USER_FILE = path.join(DATA_DIR, 'owner-user.txt');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -75,6 +76,30 @@ function saveOwnerName(name) {
     fs.writeFileSync(OWNER_NAME_FILE, name.trim(), 'utf8');
 }
 
+// Owner username — handle-style: 3-30 chars, lowercase a-z 0-9 dashes.
+// Stored normalized lowercase so comparisons are case-insensitive.
+function isValidUsername(u) {
+    return typeof u === 'string' && /^[a-z0-9-]{3,30}$/.test(u);
+}
+
+function normalizeUsername(u) {
+    return String(u || '').trim().toLowerCase();
+}
+
+function getOwnerUser() {
+    if (!fs.existsSync(OWNER_USER_FILE)) return '';
+    const u = normalizeUsername(fs.readFileSync(OWNER_USER_FILE, 'utf8'));
+    return isValidUsername(u) ? u : '';
+}
+
+function saveOwnerUser(u) {
+    const normalized = normalizeUsername(u);
+    if (!isValidUsername(normalized)) {
+        throw new Error('Invalid username: use 3-30 lowercase letters, numbers, or dashes.');
+    }
+    fs.writeFileSync(OWNER_USER_FILE, normalized, 'utf8');
+}
+
 function getSettings() {
     if (!fs.existsSync(SETTINGS_FILE)) {
         return { ...DEFAULT_SETTINGS };
@@ -99,6 +124,7 @@ module.exports = {
     BLOG_TITLE_FILE,
     COPYRIGHT_FILE,
     OWNER_NAME_FILE,
+    OWNER_USER_FILE,
     SETTINGS_FILE,
     BCRYPT_ROUNDS,
     SESSION_MAX_AGE,
@@ -113,6 +139,10 @@ module.exports = {
     saveCopyright,
     getOwnerName,
     saveOwnerName,
+    isValidUsername,
+    normalizeUsername,
+    getOwnerUser,
+    saveOwnerUser,
     getSettings,
     saveSettings
 };
