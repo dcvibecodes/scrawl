@@ -751,7 +751,7 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
                 <a href="/" class="back-link" style="margin-left:10px;">cancel</a>
             </div>
         </form>
-        <script src="/article-editor.js?v=38"></script>
+        <script src="/article-editor.js?v=39"></script>
         <script>
         initArticleEditor({ mode: 'landing' });
         function saveLanding() {

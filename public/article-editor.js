@@ -482,21 +482,43 @@
     }
 
     function saveSelection() {
-        var sel = window.getSelection();
-        if (sel.rangeCount > 0 && getEditor().contains(sel.anchorNode)) {
-            savedRange = sel.getRangeAt(0).cloneRange();
-        }
+        try {
+            var sel = window.getSelection();
+            if (sel && sel.rangeCount > 0 && getEditor().contains(sel.anchorNode)) {
+                savedRange = sel.getRangeAt(0).cloneRange();
+            }
+        } catch (e) { savedRange = null; }
     }
 
     function restoreSelection() {
         var editor = getEditor();
-        editor.focus();
-        var sel = window.getSelection();
-        sel.removeAllRanges();
-        if (savedRange) {
-            sel.addRange(savedRange);
-            savedRange = null;
-        }
+        try { editor.focus(); } catch (e) {}
+        try {
+            var sel = window.getSelection();
+            if (!sel) return;
+            if (sel.removeAllRanges) sel.removeAllRanges();
+            if (savedRange) {
+                // iOS WebKit throws "The string did not match the expected pattern"
+                // if the saved range references nodes that moved/detached while the
+                // file picker was open. Guard and fall back to end-of-editor.
+                try {
+                    var st = savedRange.startContainer;
+                    if (st && editor.contains(st) && savedRange.startContainer !== editor) {
+                        sel.addRange(savedRange);
+                        savedRange = null;
+                        return;
+                    }
+                } catch (e) {}
+                savedRange = null;
+            }
+            // Fallback: place caret at end of editor without a stale range
+            try {
+                var r = document.createRange();
+                r.selectNodeContents(editor);
+                r.collapse(false);
+                sel.addRange(r);
+            } catch (e) {}
+        } catch (e) {}
     }
 
     function figureHtml(result) {
@@ -506,38 +528,66 @@
     function insertFigure(result) {
         restoreSelection();
         var editor = getEditor();
-        var sel = window.getSelection();
         var fig = document.createElement('figure');
         fig.setAttribute('contenteditable', 'false');
         fig.innerHTML = '<img src="' + result.url + '" alt="" draggable="false"><figcaption contenteditable="true" data-placeholder="Add a caption (optional)"></figcaption>';
-        var inserted = false;
-        if (sel.rangeCount) {
-            var range = sel.getRangeAt(0);
-            var container = range.startContainer;
-            if (container.nodeType === 3) container = container.parentNode;
-            var block = container;
-            while (block && block.parentNode !== editor) block = block.parentNode;
-            if (block && block.parentNode === editor) {
-                block.parentNode.insertBefore(fig, block.nextSibling);
-                inserted = true;
-            } else if (range.startContainer === editor) {
-                var refNode = editor.childNodes[range.startOffset] || null;
-                editor.insertBefore(fig, refNode);
-                inserted = true;
-            } else {
-                try { range.insertNode(fig); inserted = true; } catch (e) {}
+
+        // Determine insertion point WITHOUT touching Range/Selection APIs, which
+        // WebKit throws "The string did not match the expected pattern" on when
+        // used with contenteditable="false" figures. Use DOM getBoundingClientRect
+        // based caret approximation instead.
+        var anchorEl = null;
+        try {
+            var selTmp = window.getSelection();
+            if (selTmp && selTmp.rangeCount) {
+                var rTmp = selTmp.getRangeAt(0);
+                if (rTmp && rTmp.startContainer) {
+                    var c = rTmp.startContainer;
+                    anchorEl = c.nodeType === 3 ? c.parentNode : c;
+                    if (anchorEl === editor) {
+                        var offset = rTmp.startOffset;
+                        anchorEl = editor.childNodes[offset] || editor.lastChild;
+                    }
+                }
+            }
+        } catch (e) {}
+
+        var target = null;
+        if (anchorEl && editor.contains(anchorEl)) {
+            // Walk up to a direct child of editor
+            while (anchorEl && anchorEl.parentNode !== editor) anchorEl = anchorEl.parentNode;
+            if (anchorEl) {
+                // Insert figure AFTER the block the caret is in
+                var nextEl = anchorEl.nextSibling;
+                editor.insertBefore(fig, nextEl);
+                target = nextEl || null;
             }
         }
-        if (!inserted) editor.appendChild(fig);
-        // Place caret after the figure - iOS WebKit may throw on setStartAfter for non-editable figure
+        if (!anchorEl || !editor.contains(anchorEl)) {
+            // Fallback: append at end
+            editor.appendChild(fig);
+            target = null;
+        }
+
+        // Move caret to just before the next block WITHOUT Range APIs on iOS.
+        // Wrap in a way that never throws.
         try {
-            var range2 = document.createRange();
-            try { range2.setStartAfter(fig); } catch (e) { range2.selectNodeContents(editor); range2.collapse(false); }
-            range2.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range2);
             editor.focus();
-        } catch (e) { try { editor.focus(); } catch (e2) {} }
+            var sel2 = window.getSelection();
+            if (sel2 && sel2.removeAllRanges) sel2.removeAllRanges();
+            var targetNode = target || fig.nextSibling || editor.lastChild;
+            if (targetNode) {
+                try {
+                    var rg = document.createRange();
+                    rg.setStart(targetNode, 0);
+                    rg.collapse(true);
+                    if (sel2 && sel2.addRange) { sel2.addRange(rg); }
+                } catch (e2) {
+                    // iOS: just focus; no caret placement
+                }
+            }
+        } catch (e3) {}
+
         enhanceFigures();
     }
 
