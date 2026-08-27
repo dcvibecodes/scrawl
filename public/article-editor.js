@@ -32,6 +32,44 @@
     function setupKeydown() {
         var editor = getEditor();
         editor.addEventListener('keydown', function(e) {
+            // Figure undo/redo: single Cmd+Z restores last deleted figure
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+                if (!e.shiftKey && figureUndoStack.length) {
+                    e.preventDefault();
+                    var entry = figureUndoStack.pop();
+                    var temp = document.createElement('div');
+                    temp.innerHTML = entry.html;
+                    var restored = temp.firstElementChild;
+                    if (restored) {
+                        try {
+                            if (entry.next && entry.next.parentNode === entry.parent) entry.parent.insertBefore(restored, entry.next);
+                            else entry.parent.appendChild(restored);
+                        } catch (err) { entry.parent.appendChild(restored); }
+                        enhanceFigures();
+                        figureRedoStack.push(entry);
+                        var r = document.createRange(); r.setStartAfter(restored); r.collapse(true);
+                        var selU = window.getSelection(); selU.removeAllRanges(); selU.addRange(r);
+                        getEditor().focus();
+                    }
+                    return;
+                } else if (e.shiftKey && figureRedoStack.length) {
+                    e.preventDefault();
+                    var redoEntry = figureRedoStack.pop();
+                    var m2 = redoEntry.html.match(/src="([^"]+)"/);
+                    var src2 = m2 ? m2[1] : null;
+                    var editor2 = getEditor();
+                    var figs2 = editor2.querySelectorAll('figure');
+                    for (var i2 = 0; i2 < figs2.length; i2++) {
+                        var imp2 = figs2[i2].querySelector('img');
+                        if (imp2 && imp2.getAttribute('src') === src2) {
+                            figureUndoStack.push(redoEntry);
+                            figs2[i2].parentNode.removeChild(figs2[i2]);
+                            break;
+                        }
+                    }
+                    return;
+                }
+            }
             // Caption is single-line: Enter or Shift+Enter inside figcaption exits to a new paragraph after the figure
             var capNode = e.target.closest ? e.target.closest('figcaption') : null;
             if (!capNode) {
@@ -80,11 +118,8 @@
                     if (block && block.previousElementSibling && block.previousElementSibling.tagName === 'FIGURE') {
                         e.preventDefault();
                         var fig = block.previousElementSibling;
-                        var delRange = document.createRange();
-                        delRange.selectNode(fig);
-                        sel.removeAllRanges();
-                        sel.addRange(delRange);
-                        document.execCommand('delete', false, null);
+                        pushFigureUndo(fig);
+                        fig.parentNode.removeChild(fig);
                         var caretRange = document.createRange();
                         caretRange.setStart(block, 0);
                         caretRange.collapse(true);
@@ -432,6 +467,15 @@
     var savedRange = null;
     var imageInput = null;
     var uploadsInFlight = 0;
+    var figureUndoStack = [];
+    var figureRedoStack = [];
+
+    function pushFigureUndo(fig) {
+        try {
+            figureUndoStack.push({ html: fig.outerHTML, parent: fig.parentNode, next: fig.nextSibling });
+            figureRedoStack = [];
+        } catch (e) {}
+    }
 
     function saveSelection() {
         var sel = window.getSelection();
@@ -496,7 +540,7 @@
     function handleImageFiles(fileList) {
         var files = Array.prototype.slice.call(fileList || []);
         var images = files.filter(function(f) {
-            return /^image\//.test(f.type) && f.size <= 10 * 1024 * 1024;
+            return /^image\/(png|jpeg|jpg|webp|gif|heic|heif)/.test(f.type) && f.size <= 10 * 1024 * 1024;
         });
         if (!images.length) return;
         // Chain uploads so figures land in drag/paste order
@@ -533,7 +577,7 @@
         if (!imageInput) {
             imageInput = document.createElement('input');
             imageInput.type = 'file';
-            imageInput.accept = 'image/png,image/jpeg,image/webp,image/gif';
+            imageInput.accept = 'image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif';
             imageInput.style.display = 'none';
             document.body.appendChild(imageInput);
             imageInput.addEventListener('change', function() {
@@ -576,13 +620,8 @@
             del.addEventListener('click', function(ev) {
                 ev.preventDefault();
                 ev.stopPropagation();
-                // Use execCommand so a single Cmd+Z restores the figure
-                var range = document.createRange();
-                range.selectNode(fig);
-                var selDel = window.getSelection();
-                selDel.removeAllRanges();
-                selDel.addRange(range);
-                document.execCommand('delete', false, null);
+                pushFigureUndo(fig);
+                fig.parentNode.removeChild(fig);
                 getEditor().focus();
             });
             fig.appendChild(del);

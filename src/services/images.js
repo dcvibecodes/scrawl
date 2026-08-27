@@ -8,7 +8,7 @@ const { getDb } = require('../db');
 const { extractImageRefs } = require('../utils/html');
 
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
-const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+const EXT_BY_MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'jpg', 'image/heif': 'jpg' };
 const MAX_DIMENSION = 2000;
 const ORPHAN_GRACE_MS = 24 * 60 * 60 * 1000;
 
