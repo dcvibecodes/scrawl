@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
     commentsOnPostsEnabled: true,
     commentsOnArticlesEnabled: true,
     contactEnabled: true,
+    lightTheme: 'sepia',       // 'sepia' | 'white' | 'pink'  (site-wide light palette; dark mode is per-visitor)
     customLandingContent: ''
 };
 

@@ -8,6 +8,22 @@ html { width: 100%; overflow-x: clip; }
     --separator-color: #e8ddd0;
     --dp-color: #000000;
 }
+[data-light="white"] {
+    --bg-body: #ffffff;
+    --bg-card: #ffffff;
+    --text-main: #1a1a1a;
+    --text-muted: #666666;
+    --separator-color: #e5e5e5;
+    --dp-color: #000000;
+}
+[data-light="pink"] {
+    --bg-body: #fdf2ff;
+    --bg-card: #fdf2ff;
+    --text-main: #3d2540;
+    --text-muted: #82668a;
+    --separator-color: #f8e9fb;
+    --dp-color: #3d2540;
+}
 [data-theme="dark"] {
     --bg-body: #000000;
     --bg-card: #000000;

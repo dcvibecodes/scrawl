@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.5.7**
+**Version 4.5.8**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -270,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.5.8
+
+#### Added
+
+- **Theme setting** — a new "Theme" section in Settings lets you pick your site's light look: Sepia (the classic default), White, or Baby Pink (a soft pastel pink-lavender with plum text). The choice applies site-wide, so every visitor sees it, while each visitor's dark mode toggle in the menu keeps working on top of it. Radio buttons preview the theme live as you click, but nothing persists until you press "Save Theme", which shows the same Saving/Saved/Failed feedback as the other settings.
 
 ### Version 4.5.7
 

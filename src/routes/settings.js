@@ -87,6 +87,34 @@ router.get('/settings', requireOwner, (req, res) => {
                 </div>
             </div>
 
+            <!-- Theme -->
+            <div class="settings-section">
+                <h3>Theme</h3>
+                <p class="settings-hint">Pick the light look for your site — every visitor sees it. Dark mode stays available to each visitor through the menu toggle.</p>
+                <div class="settings-option">
+                    <label>
+                        <input type="radio" name="lightTheme" value="sepia" ${(settings.lightTheme || 'sepia') === 'sepia' ? 'checked' : ''}>
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px;background:#f5efe6;border:1px solid var(--separator-color);"></span>
+                        Sepia
+                        <span class="settings-desc">Warm paper tones — the classic Scrawl default.</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="lightTheme" value="white" ${settings.lightTheme === 'white' ? 'checked' : ''}>
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px;background:#ffffff;border:1px solid var(--separator-color);"></span>
+                        White
+                        <span class="settings-desc">Clean, pure white.</span>
+                    </label>
+                    <label>
+                        <input type="radio" name="lightTheme" value="pink" ${settings.lightTheme === 'pink' ? 'checked' : ''}>
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px;background:#fdf2ff;border:1px solid var(--separator-color);"></span>
+                        Baby Pink
+                        <span class="settings-desc">Soft pastel pink-lavender with plum text.</span>
+                    </label>
+                </div>
+                <button type="button" class="comment-submit-btn" onclick="saveTheme()">Save Theme</button>
+                <span class="settings-status" id="themeStatus"></span>
+            </div>
+
             <!-- Edit Title -->
             <div class="settings-section">
                 <h3>Edit Title</h3>
@@ -138,6 +166,19 @@ router.get('/settings', requireOwner, (req, res) => {
         var commentsOnPostsEnabled = document.getElementById('commentsOnPostsEnabled');
         var commentsOnArticlesEnabled = document.getElementById('commentsOnArticlesEnabled');
         var contactEnabled = document.getElementById('contactEnabled');
+
+        // Theme (light variant) — live preview on the page while choosing
+        var themeRadios = document.querySelectorAll('input[name="lightTheme"]');
+        themeRadios.forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (this.value === 'sepia') {
+                    document.documentElement.removeAttribute('data-light');
+                } else {
+                    document.documentElement.setAttribute('data-light', this.value);
+                }
+                document.documentElement.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--bg-body').trim();
+            });
+        });
 
         function updateLandingOptions() {
             var postsRadio = document.querySelector('input[name="landingPage"][value="posts"]');
@@ -245,6 +286,29 @@ router.get('/settings', requireOwner, (req, res) => {
             });
         }
         updateMenuVisibility();
+
+        // Theme — saves only when its own button is clicked; radio changes are preview-only
+        function saveTheme() {
+            var lightTheme = document.querySelector('input[name="lightTheme"]:checked').value;
+            var btn = event.target;
+            var original = btn ? btn.textContent : '';
+            setBtn(btn, 'Saving...', true);
+            fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lightTheme: lightTheme })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) { setBtn(btn, 'Saved', false); }
+                else { setBtn(btn, 'Failed', false); }
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            })
+            .catch(function() {
+                setBtn(btn, 'Failed', false);
+                setTimeout(function() { setBtn(btn, original, false); }, 2000);
+            });
+        }
 
         // Title
         function saveTitle() {
@@ -412,7 +476,7 @@ router.get('/settings', requireOwner, (req, res) => {
 
 // Save settings API (owner only)
 router.post('/api/settings', requireOwner, (req, res) => {
-    const { landingPage, ownerHome, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled, contactEnabled } = req.body;
+    const { landingPage, ownerHome, postsEnabled, articlesEnabled, commentsOnPostsEnabled, commentsOnArticlesEnabled, contactEnabled, lightTheme } = req.body;
     const settings = getSettings();
     if (landingPage === 'posts' || landingPage === 'articles' || landingPage === 'custom') {
         settings.landingPage = landingPage;
@@ -425,6 +489,9 @@ router.post('/api/settings', requireOwner, (req, res) => {
     if (typeof commentsOnPostsEnabled === 'boolean') settings.commentsOnPostsEnabled = commentsOnPostsEnabled;
     if (typeof commentsOnArticlesEnabled === 'boolean') settings.commentsOnArticlesEnabled = commentsOnArticlesEnabled;
     if (typeof contactEnabled === 'boolean') settings.contactEnabled = contactEnabled;
+    if (lightTheme === 'sepia' || lightTheme === 'white' || lightTheme === 'pink') {
+        settings.lightTheme = lightTheme;
+    }
     saveSettings(settings);
     res.json({ success: true });
 });

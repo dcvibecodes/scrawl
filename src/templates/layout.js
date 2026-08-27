@@ -4,6 +4,8 @@ const { getCopyright, getBlogTitle, getSettings } = require('../config');
 const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta, pendingComments, pendingMessages, showRandom }) =>  {
     const copyrightText = copyright !== undefined ? copyright : getCopyright();
     const settings = getSettings();
+    const lightTheme = ['white', 'pink'].includes(settings.lightTheme) ? settings.lightTheme : '';
+    const lightThemeBg = { sepia: '#f5efe6', white: '#ffffff', pink: '#FDF2FF' }[settings.lightTheme] || '#f5efe6';
     const showHome = true; // Home (landing page) always exists
     const showPosts = settings.postsEnabled;
     const showArticles = settings.articlesEnabled;
@@ -41,7 +43,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     }
     return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"${lightTheme ? ` data-light="${lightTheme}"` : ''}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -60,8 +62,8 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-    <link rel="stylesheet" href="/styles.css?v=24">
-    <script>(function(){var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');document.documentElement.style.backgroundColor='#000000';}else{document.documentElement.style.backgroundColor='#f5efe6';}})()</script>
+    <link rel="stylesheet" href="/styles.css?v=26">
+    <script>(function(){var t=localStorage.getItem('theme');var b='${escapeHtml(lightThemeBg)}';if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');document.documentElement.style.backgroundColor='#000000';}else{document.documentElement.style.backgroundColor=b;}})()</script>
 </head>
 <body>
     <header>
