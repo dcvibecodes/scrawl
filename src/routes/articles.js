@@ -139,7 +139,7 @@ router.get('/articles/new', requireOwner, (req, res) => {
                 <a href="/articles" class="back-link" style="margin-left:10px;" onclick="if(!confirmCancel())return false;articleSaved=true;">cancel</a>
             </div>
         </form>
-        <script src="/article-editor.js?v=36"></script>
+        <script src="/article-editor.js?v=37"></script>
         <script>initArticleEditor({ mode: 'new' });</script>
     `;
 
@@ -344,7 +344,7 @@ router.get('/articles/:id/edit', requireOwner, async (req, res) => {
                     <a href="/articles/${article.id}" class="back-link" style="margin-left:10px;" onclick="if(!articleSaved&&!confirm('You have unsaved changes. Discard?'))return false;articleSaved=true;">cancel</a>
                 </div>
             </form>
-            <script src="/article-editor.js?v=36"></script>
+            <script src="/article-editor.js?v=37"></script>
             <script>initArticleEditor({ mode: 'edit', articleId: '${article.id}', isDraft: ${isDraft} });</script>
         `;
 

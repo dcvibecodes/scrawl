@@ -46,12 +46,21 @@ async function storeImage(file) {
             }
             outMeta = await sharp(out).metadata();
         } catch (e) {
-            throw Object.assign(new Error('Unsupported or corrupt image file.'), { status: 400 });
+            // HEIC on sharp without HEIF support — store original instead of failing
+            if (file.mimetype === 'image/heic' || file.mimetype === 'image/heif') {
+                out = file.buffer;
+                ext = 'heic';
+                outMeta = {};
+            } else {
+                throw Object.assign(new Error('Unsupported or corrupt image file.'), { status: 400 });
+            }
         }
     } else {
         // Fallback: store original without processing (no EXIF strip, no resize)
+        // For HEIC/HEIF, keep original extension so iOS Safari can display it
         out = file.buffer;
-        ext = EXT_BY_MIME[file.mimetype];
+        if (file.mimetype === 'image/heic' || file.mimetype === 'image/heif') ext = 'heic';
+        else ext = EXT_BY_MIME[file.mimetype];
         outMeta = {};
     }
 

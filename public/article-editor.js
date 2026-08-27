@@ -47,9 +47,13 @@
                         } catch (err) { entry.parent.appendChild(restored); }
                         enhanceFigures();
                         figureRedoStack.push(entry);
-                        var r = document.createRange(); r.setStartAfter(restored); r.collapse(true);
-                        var selU = window.getSelection(); selU.removeAllRanges(); selU.addRange(r);
-                        getEditor().focus();
+                        try {
+                            var r = document.createRange();
+                            try { r.setStartAfter(restored); } catch (e) { r.selectNodeContents(editor); r.collapse(false); }
+                            r.collapse(true);
+                            var selU = window.getSelection(); selU.removeAllRanges(); selU.addRange(r);
+                        } catch (e) {}
+                        try { getEditor().focus(); } catch (e) {}
                     }
                     return;
                 } else if (e.shiftKey && figureRedoStack.length) {
@@ -525,22 +529,23 @@
             }
         }
         if (!inserted) editor.appendChild(fig);
-        // Place caret after the figure (before next block like H2) without adding an extra blank line
+        // Place caret after the figure - iOS WebKit may throw on setStartAfter for non-editable figure
         try {
             var range2 = document.createRange();
-            range2.setStartAfter(fig);
+            try { range2.setStartAfter(fig); } catch (e) { range2.selectNodeContents(editor); range2.collapse(false); }
             range2.collapse(true);
             sel.removeAllRanges();
             sel.addRange(range2);
             editor.focus();
-        } catch (e) {}
+        } catch (e) { try { editor.focus(); } catch (e2) {} }
         enhanceFigures();
     }
 
     function handleImageFiles(fileList) {
         var files = Array.prototype.slice.call(fileList || []);
         var images = files.filter(function(f) {
-            return /^image\/(png|jpeg|jpg|webp|gif|heic|heif)/.test(f.type) && f.size <= 10 * 1024 * 1024;
+            var isImage = /^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|heic|heif)$/i.test(f.name || '');
+            return isImage && f.size <= 10 * 1024 * 1024;
         });
         if (!images.length) return;
         // Chain uploads so figures land in drag/paste order
@@ -564,7 +569,10 @@
             insertFigure(data);
         })
         .catch(function(err) {
-            alert(err.message || 'Image upload failed.');
+            var msg = (err && err.message) || 'Image upload failed.';
+            // iOS pattern error is often from Range/selector - log stack for debugging
+            if (err && err.stack) console.error('Image upload error:', err.stack);
+            alert(msg);
         })
         .finally(function() {
             uploadsInFlight--;
