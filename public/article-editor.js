@@ -536,7 +536,23 @@
             fd.append('image', file);
             return fd;
         })() })
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            var ct = r.headers.get('content-type') || '';
+            if (!r.ok) {
+                if (r.status === 413) throw new Error('Image is too large (max 10 MB). Try a smaller or compressed image.');
+                // nginx 413 returns HTML, not JSON — avoid r.json() SyntaxError
+                if (!ct.includes('application/json')) {
+                    return r.text().then(function(t) {
+                        if (t.includes('413') || t.toLowerCase().includes('request entity too large')) throw new Error('Image is too large (max 10 MB).');
+                        throw new Error('Upload failed (' + r.status + ').');
+                    });
+                }
+            }
+            if (!ct.includes('application/json')) {
+                return r.text().then(function(t) { throw new Error(t.slice(0,120) || 'Upload failed.'); });
+            }
+            return r.json();
+        })
         .then(function(data) {
             if (!data.success) throw new Error(data.error || 'Upload failed.');
             insertFigureAtAnchor(data, anchorEl);

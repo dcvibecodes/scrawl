@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.6.1**
+**Version 4.6.2**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -270,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.6.2
+
+#### Fixed
+
+- **Large image uploads on iPhone** — nginx `client_max_body_size` was the default 1 MB, so any photo over that was rejected with an HTML 413 page that Safari shows as `SyntaxError: The string did not match the expected pattern` when the editor tried to parse it as JSON. Raised to 12 MB on both dancanvell.com and the demo, and made the editor show a friendly “Image is too large (max 10 MB)” message instead.
 
 ### Version 4.6.1
 
