@@ -492,14 +492,16 @@
     }
 
     function figureHtml(result) {
-        return '<figure contenteditable="false"><img src="' + result.url + '" alt="" draggable="false"><figcaption contenteditable="true" data-placeholder="Add a caption (optional)"></figcaption></figure>';
+        return '<figure><img src="' + result.url + '" alt=""><figcaption data-placeholder="Add a caption (optional)"></figcaption></figure>';
     }
 
     function insertFigureAtAnchor(result, anchorEl) {
         var editor = getEditor();
         var fig = document.createElement('figure');
-        fig.setAttribute('contenteditable', 'false');
-        fig.innerHTML = '<img src="' + result.url + '" alt="" draggable="false"><figcaption contenteditable="true" data-placeholder="Add a caption (optional)"></figcaption>';
+        // iOS WebKit throws "The string did not match the expected pattern" if a
+        // contenteditable="false" figure is inserted synchronously while selection
+        // is active. Insert as plain figure first, enhance after.
+        fig.innerHTML = '<img src="' + result.url + '" alt="" draggable="false"><figcaption data-placeholder="Add a caption (optional)"></figcaption>';
         try {
             if (anchorEl && anchorEl.parentNode === editor && anchorEl.nextSibling) {
                 editor.insertBefore(fig, anchorEl.nextSibling);
@@ -541,9 +543,17 @@
         })
         .catch(function(err) {
             var msg = (err && err.message) || 'Image upload failed.';
-            if (err && err.name) msg = err.name + ': ' + msg;
-            if (err && err.stack) console.error('Image upload error:', err.stack);
-            alert(msg);
+            var diag = '';
+            if (err) {
+                if (err.name) msg = err.name + ': ' + msg;
+                if (err.stack) {
+                    console.error('Image upload error:', err.stack);
+                    diag = '\n' + String(err.stack).split('\n').slice(0,4).join('\n');
+                } else if (err.message) {
+                    diag = '\n' + err.message;
+                }
+            }
+            alert(msg + diag + '\n\nIf this persists, please share a screenshot of this message.');
         })
         .finally(function() {
             uploadsInFlight--;
