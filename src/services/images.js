@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const sharp = require('sharp');
+let sharp;
+try { sharp = require('sharp'); } catch (e) { sharp = null; console.warn('[images] sharp not available — storing originals without processing'); }
 const { DATA_DIR } = require('../config');
 const { getDb } = require('../db');
 const { extractImageRefs } = require('../utils/html');
@@ -27,27 +28,31 @@ async function storeImage(file) {
 
     ensureUploadsDir();
     let out, ext, outMeta;
-    // A declared mimetype can lie (or the file can be corrupt) — treat any
-    // decode/encode failure as a client error, not a server fault.
-    try {
-        let pipeline = sharp(file.buffer, { failOn: 'error' });
-        const meta = await pipeline.metadata();
-        if (meta.width > MAX_DIMENSION || meta.height > MAX_DIMENSION) {
-            pipeline = pipeline.resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: 'inside', withoutEnlargement: true });
+    if (sharp) {
+        try {
+            let pipeline = sharp(file.buffer, { failOn: 'error' });
+            const meta = await pipeline.metadata();
+            if (meta.width > MAX_DIMENSION || meta.height > MAX_DIMENSION) {
+                pipeline = pipeline.resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: 'inside', withoutEnlargement: true });
+            }
+            if (file.mimetype === 'image/gif') {
+                out = await pipeline.gif().toBuffer(); ext = 'gif';
+            } else if (file.mimetype === 'image/png') {
+                out = await pipeline.png({ compressionLevel: 9 }).toBuffer(); ext = 'png';
+            } else if (file.mimetype === 'image/webp') {
+                out = await pipeline.webp({ quality: 82 }).toBuffer(); ext = 'webp';
+            } else {
+                out = await pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer(); ext = 'jpg';
+            }
+            outMeta = await sharp(out).metadata();
+        } catch (e) {
+            throw Object.assign(new Error('Unsupported or corrupt image file.'), { status: 400 });
         }
-
-        if (file.mimetype === 'image/gif') {
-            out = await pipeline.gif().toBuffer(); ext = 'gif';
-        } else if (file.mimetype === 'image/png') {
-            out = await pipeline.png({ compressionLevel: 9 }).toBuffer(); ext = 'png';
-        } else if (file.mimetype === 'image/webp') {
-            out = await pipeline.webp({ quality: 82 }).toBuffer(); ext = 'webp';
-        } else {
-            out = await pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer(); ext = 'jpg';
-        }
-        outMeta = await sharp(out).metadata();
-    } catch (e) {
-        throw Object.assign(new Error('Unsupported or corrupt image file.'), { status: 400 });
+    } else {
+        // Fallback: store original without processing (no EXIF strip, no resize)
+        out = file.buffer;
+        ext = EXT_BY_MIME[file.mimetype];
+        outMeta = {};
     }
 
     const id = crypto.randomUUID();
