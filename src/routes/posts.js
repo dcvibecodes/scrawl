@@ -755,6 +755,7 @@ router.get('/landing/edit', requireOwner, async (req, res) => {
         <script>
         initArticleEditor({ mode: 'landing' });
         function saveLanding() {
+            if (typeof uploadsInFlight !== 'undefined' && uploadsInFlight > 0) { alert('Please wait for image upload to finish.'); return; }
             var btn = document.querySelector('.publish-row button');
             var content = getContent();
             btn.textContent = 'Saving...';

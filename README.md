@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.6.2**
+**Version 4.6.3**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -270,6 +270,12 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.6.3
+
+#### Added
+
+- **Image uploading feedback** — uploading a 3 MB image in the article & custom-landing composers now shows an inline placeholder at the cursor (`Uploading image…` + spinner) that replaces itself with the real figure on success. `Publish` / `Save as draft` / `Update` / `Save` are disabled and dimmed while an upload is in flight (with an alert guard on click), so you can't save before the image lands. On failure the placeholder becomes `Upload failed — retry` inline. Placeholders are never persisted (stripped in `getContent()`).
 
 ### Version 4.6.2
 

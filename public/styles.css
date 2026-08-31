@@ -10,6 +10,12 @@ html { width: 100%; overflow-x: clip; }
 .article-content-editor figcaption:has(> br:only-child)::before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
 .article-content-editor figcaption { min-height: 1.2em; outline: none; }
 .article-content-editor figcaption:has(> br:only-child) { color: transparent; }
+/* Uploading placeholder (indeterminate spinner, never stored) */
+.figure-uploading { display:flex; align-items:center; justify-content:center; gap:10px; min-height:120px; padding:16px; background:var(--bg-body); border:1px dashed var(--separator-color); border-radius:6px; color:var(--text-muted); font-size:0.85rem; }
+.figure-uploading .spinner { width:18px; height:18px; border:2px solid var(--separator-color); border-top-color:var(--text-muted); border-radius:50%; animation:spin 0.8s linear infinite; flex-shrink:0; }
+.figure-upload-error { display:flex; align-items:center; justify-content:center; gap:10px; min-height:80px; padding:12px; border:1px dashed #d96b6b; border-radius:6px; color:#d96b6b; font-size:0.85rem; }
+.figure-upload-error a { color:#d96b6b; text-decoration:underline; cursor:pointer; }
+
 /* Edit-time-only remove overlay (never stored in saved HTML) */
 .article-content-editor figure { position: relative; }
 .article-content-editor .figure-delete { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; line-height: 22px; text-align: center; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; cursor: pointer; font-size: 16px; user-select: none; }
@@ -180,6 +186,7 @@ font-weight: normal;
     94% { transform: rotate(-15deg) translateY(0); }
     100% { transform: rotate(-15deg) translateY(0); }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 .hamburger-btn { display: none; background: none !important; border: none; padding: 0; margin: 0; cursor: pointer; color: var(--text-muted); opacity: 0.7; line-height: 1; }
 .hamburger-btn:hover { opacity: 1; }
 .hamburger-btn svg { width: 20px; height: 20px; display: block; }

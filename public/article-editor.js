@@ -522,15 +522,61 @@
             return isImage && f.size <= 10 * 1024 * 1024;
         });
         if (!images.length) return;
-        // Chain uploads so figures land in drag/paste order
+        var baseAnchor = insertionAnchorEl;
+        var lastAnchor = baseAnchor;
         var chain = Promise.resolve();
-        images.forEach(function(file) { chain = chain.then(function() { return uploadImageFile(file, null, null); }); });
+        images.forEach(function(file) {
+            chain = chain.then(function() {
+                return uploadImageFile(file, lastAnchor, null).then(function() {
+                    // Next image should land after the one we just inserted
+                    var editor = getEditor();
+                    var figs = editor.querySelectorAll('figure, .figure-uploading');
+                    if (figs.length) lastAnchor = figs[figs.length - 1];
+                });
+            });
+        });
+    }
+
+    function setPublishBlocked(blocked) {
+        var nodes = document.querySelectorAll('.publish-row button, #articleForm .publish-row button, form#articleForm button');
+        for (var i = 0; i < nodes.length; i++) {
+            // Don't permanently disable the HTML-toggle button
+            if (nodes[i].id === 'htmlModeBtn') continue;
+            nodes[i].disabled = blocked;
+            nodes[i].style.opacity = blocked ? '0.5' : '';
+            nodes[i].style.pointerEvents = blocked ? 'none' : '';
+        }
+    }
+
+    function insertUploadPlaceholder(anchorEl) {
+        var editor = getEditor();
+        var ph = document.createElement('figure');
+        ph.className = 'figure-uploading';
+        ph.setAttribute('data-upload-placeholder', '1');
+        ph.innerHTML = '<div class=\"spinner\" aria-hidden=\"true\"></div><span>Uploading image…</span>';
+        try {
+            if (anchorEl && anchorEl.parentNode === editor && anchorEl.nextSibling) {
+                editor.insertBefore(ph, anchorEl.nextSibling);
+            } else if (anchorEl && anchorEl.parentNode === editor && !anchorEl.nextSibling) {
+                editor.appendChild(ph);
+            } else if (anchorEl && anchorEl.parentNode !== editor) {
+                editor.appendChild(ph);
+            } else {
+                // No anchor (e.g. drag at end) — append, but if ph was first child and editor had placeholder text, keep.
+                editor.appendChild(ph);
+            }
+        } catch (e) {
+            try { editor.appendChild(ph); } catch (e2) {}
+        }
+        return ph;
     }
 
     function uploadImageFile(file, anchorEl, btn) {
         var originalTitle = btn ? btn.title : '';
         if (btn) { btn.disabled = true; btn.style.opacity = '0.4'; }
         uploadsInFlight++;
+        setPublishBlocked(true);
+        var placeholder = insertUploadPlaceholder(anchorEl);
         return fetch('/api/images', { method: 'POST', body: (function() {
             var fd = new FormData();
             fd.append('image', file);
@@ -555,9 +601,46 @@
         })
         .then(function(data) {
             if (!data.success) throw new Error(data.error || 'Upload failed.');
-            insertFigureAtAnchor(data, anchorEl);
+            // Replace placeholder with real figure at the placeholder's position
+            if (placeholder && placeholder.parentNode) {
+                // Re-use anchor logic: insert real figure where placeholder was, then remove placeholder
+                var editor = getEditor();
+                var phAnchor = placeholder.previousElementSibling;
+                // If placeholder had a valid previous sibling that is still in editor, keep that as anchor; else use placeholder's previous
+                placeholder.parentNode.removeChild(placeholder);
+                insertFigureAtAnchor(data, phAnchor && phAnchor.parentNode === editor ? phAnchor : null);
+                // If we inserted at end but placeholder was not at end, we need to move figure to placeholder spot.
+                // Simple fix: if phAnchor and its next sibling is not the new figure, relocate.
+                try {
+                    var figs = editor.querySelectorAll('figure');
+                    var lastFig = figs[figs.length - 1];
+                    if (phAnchor && phAnchor.nextSibling !== lastFig && lastFig.parentNode === editor) {
+                        editor.insertBefore(lastFig, phAnchor.nextSibling);
+                    }
+                } catch (e) {}
+            } else {
+                insertFigureAtAnchor(data, anchorEl);
+            }
         })
         .catch(function(err) {
+            if (placeholder && placeholder.parentNode) {
+                placeholder.className = 'figure-upload-error';
+                placeholder.innerHTML = '<span>Upload failed</span><a href=\"#\" role=\"button\">retry</a>';
+                var retryLink = placeholder.querySelector('a');
+                if (retryLink) {
+                    retryLink.addEventListener('click', function(ev) {
+                        ev.preventDefault();
+                        placeholder.parentNode.removeChild(placeholder);
+                        uploadImageFile(file, anchorEl, btn);
+                    });
+                }
+                // Also keep alert for diagnostics, but don't block UI
+                setTimeout(function() {
+                    var msg = (err && err.message) || 'Image upload failed.';
+                    console.error('Image upload error:', err);
+                }, 0);
+                return;
+            }
             var msg = (err && err.message) || 'Image upload failed.';
             var diag = '';
             if (err) {
@@ -573,6 +656,10 @@
         })
         .finally(function() {
             uploadsInFlight--;
+            if (uploadsInFlight <= 0) {
+                uploadsInFlight = 0;
+                setPublishBlocked(false);
+            }
             if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.title = originalTitle; }
         });
     }
@@ -710,6 +797,7 @@
         }
         var editor = getEditor();
         var clone = editor.cloneNode(true);
+        clone.querySelectorAll('.figure-uploading, .figure-upload-error, [data-upload-placeholder]').forEach(function(el) { el.remove(); });
         clone.querySelectorAll('.figure-delete').forEach(function(el) { el.remove(); });
         clone.querySelectorAll('figure').forEach(function(fig) {
             fig.removeAttribute('data-figure-enh');
@@ -823,6 +911,7 @@
 
     // New article: POST to /articles
     window.submitArticle = function(status) {
+        if (uploadsInFlight > 0) { alert('Please wait for image upload to finish.'); return; }
         var title = document.getElementById('article-title').value.trim();
         var content = getContent();
         var dateVal = document.getElementById('article-date').value;
@@ -849,6 +938,7 @@
 
     // Edit article: PUT to /articles/:id
     window.updateArticle = function(status) {
+        if (uploadsInFlight > 0) { alert('Please wait for image upload to finish.'); return; }
         var title = document.getElementById('article-title').value.trim();
         var content = getContent();
         var dateVal = document.getElementById('article-date').value;
