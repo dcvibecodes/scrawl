@@ -118,14 +118,18 @@ router.get('/settings', requireOwner, (req, res) => {
                 <h3>Custom Pages <span id="customPagesCount" style="font-weight:normal;color:var(--text-muted);font-size:0.85rem;"></span></h3>
                 <p class="settings-hint">Add up to 5 pages with your own content. Each appears in the menu after Home and before Articles.</p>
                 <div id="customPagesList" style="margin-top:12px;"></div>
-                <div id="customPagesAdd" style="margin-top:14px;display:flex;column-gap:8px;row-gap:15px;align-items:center;flex-wrap:wrap;">
-                    <div style="flex:1;min-width:180px;">
+                <div id="customPagesAdd" style="margin-top:14px;">
+                    <div>
                         <input type="text" id="newCustomPageName" placeholder="e.g. About" maxlength="50" class="comment-author-input" style="max-width:100%;margin-bottom:4px;">
                         <p class="settings-hint" style="margin:0;font-size:0.78rem;">This name will appear in the menu (shown lowercased).</p>
                     </div>
-                    <button type="button" class="comment-submit-btn" id="addCustomPageBtn" onclick="addCustomPage()">Add page</button>
-                    <button type="button" class="comment-submit-btn" id="saveCustomPagesBtn" onclick="saveCustomPages(event)">Save</button>
-                    <span class="settings-status" id="customPagesStatus"></span>
+                    <div style="display:flex;column-gap:8px;align-items:center;margin-top:15px;">
+                        <button type="button" class="comment-submit-btn" id="addCustomPageBtn" onclick="addCustomPage()">Add page</button>
+                        <span style="position:relative;display:inline-flex;">
+                            <button type="button" class="comment-submit-btn" id="saveCustomPagesBtn" onclick="saveCustomPages(event)">Save</button>
+                            <span class="settings-status" id="customPagesStatus" style="position:absolute;left:100%;top:50%;transform:translateY(-50%);white-space:nowrap;pointer-events:none;"></span>
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -584,8 +588,8 @@ router.get('/settings', requireOwner, (req, res) => {
             var input = document.getElementById('newCustomPageName');
             var name = input ? input.value.trim() : '';
             var btn = document.getElementById('addCustomPageBtn');
-            if(!name){ setStatus('customPagesStatus','Name is required.',true); if(input) input.focus(); return; }
-            if(customPagesData.length >= MAX_CUSTOM_PAGES){ setStatus('customPagesStatus','Maximum '+MAX_CUSTOM_PAGES+' pages.',true); return; }
+            if(!name){ setStatus('customPagesStatus','Name is required.',false); if(input) input.focus(); return; }
+            if(customPagesData.length >= MAX_CUSTOM_PAGES){ setStatus('customPagesStatus','Maximum '+MAX_CUSTOM_PAGES+' pages.',false); return; }
             var original = btn ? btn.textContent : '';
             setBtn(btn,'Adding...',true);
             fetch('/api/custom-pages',{
@@ -602,7 +606,7 @@ router.get('/settings', requireOwner, (req, res) => {
                     setStatus('customPagesStatus','',false);
                 } else {
                     setBtn(btn,'Failed',false);
-                    setStatus('customPagesStatus', data.error||'Failed', true);
+                    setStatus('customPagesStatus', data.error||'Failed', false);
                     setTimeout(function(){ setBtn(btn, original, false); },2000);
                 }
             }).catch(function(){
@@ -648,7 +652,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 else if(page.name !== newName){ changed.push({ id:id, newName:newName, input:input, page:page }); }
             });
             if(hasEmpty){
-                setStatus('customPagesStatus','Name cannot be empty.',true);
+                setStatus('customPagesStatus','Name cannot be empty.',false);
                 if(emptyInput){
                     var foundEmpty = customPagesData.find(function(p){ return p.id===emptyInput.getAttribute('data-id'); });
                     if(foundEmpty) emptyInput.value = foundEmpty.name;
@@ -676,7 +680,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 } else {
                     var firstFail = failed[0];
                     setBtn(btn,'Failed',false);
-                    setStatus('customPagesStatus', firstFail.data.error||'Failed', true);
+                    setStatus('customPagesStatus', firstFail.data.error||'Failed', false);
                     // revert failed inputs
                     failed.forEach(function(r){ r.item.input.value = r.item.page.name; });
                     // also commit successful ones
@@ -687,7 +691,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 }
             }).catch(function(){
                 setBtn(btn,'Failed',false);
-                setStatus('customPagesStatus','Failed',true);
+                setStatus('customPagesStatus','Failed',false);
                 setTimeout(function(){ setBtn(btn, original, false); },2000);
             });
         }
@@ -700,7 +704,7 @@ router.get('/settings', requireOwner, (req, res) => {
                         customPagesData = customPagesData.filter(function(p){ return p.id!==id; });
                         renderCustomPages();
                         rebuildCustomPageMenus();
-                    } else { el.textContent='delete'; el.dataset.confirming=''; setStatus('customPagesStatus', data.error||'Failed', true); }
+                    } else { el.textContent='delete'; el.dataset.confirming=''; setStatus('customPagesStatus', data.error||'Failed', false); }
                 }).catch(function(){ el.textContent='delete'; el.dataset.confirming=''; });
                 return;
             }
@@ -723,8 +727,8 @@ router.get('/settings', requireOwner, (req, res) => {
                     customPagesData.splice(newIndex,0,moved);
                     renderCustomPages();
                     rebuildCustomPageMenus();
-                } else { setStatus('customPagesStatus', data.error||'Failed', true); }
-            }).catch(function(){ setStatus('customPagesStatus','Failed',true); });
+                } else { setStatus('customPagesStatus', data.error||'Failed', false); }
+            }).catch(function(){ setStatus('customPagesStatus','Failed',false); });
         }
         renderCustomPages();
         </script>

@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.7.0**
+**Version 4.8.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -274,6 +274,15 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.8.0
+
+#### Fixed
+
+- **Custom Pages — stable Save feedback UI** — the "No changes to save." message now appears as a muted-gray overlay right beside the Save button via absolute positioning, so no element on the page moves when it appears or disappears (previously the buttons and everything below hopped up/down as the message toggled).
+- **Custom Pages — consistent, momentary messages** — all status messages ("Name is required.", "Name cannot be empty.", "Maximum 5 pages.", failures) now share the same muted gray color and auto-dismiss after 2 seconds, matching "No changes to save." (previously validation/server errors were red and stayed until the next action).
+- **Custom Pages — deterministic button padding** — the Add page / Save row now always sits 15px below the "shown lowercased" hint via a dedicated button row, instead of depending on where the flex row happened to wrap (which could collapse the gap at some viewport widths).
+- **Stylesheet cache-bust** — `styles.css?v=33`.
 
 ### Version 4.7.0
 
