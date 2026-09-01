@@ -118,15 +118,15 @@ router.get('/settings', requireOwner, (req, res) => {
                 <h3>Custom Pages <span id="customPagesCount" style="font-weight:normal;color:var(--text-muted);font-size:0.85rem;"></span></h3>
                 <p class="settings-hint">Add up to 5 pages with your own content. Each appears in the menu after Home and before Articles.</p>
                 <div id="customPagesList" style="margin-top:12px;"></div>
-                <div id="customPagesAdd" style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div id="customPagesAdd" style="margin-top:14px;display:flex;column-gap:8px;row-gap:15px;align-items:center;flex-wrap:wrap;">
                     <div style="flex:1;min-width:180px;">
                         <input type="text" id="newCustomPageName" placeholder="e.g. About" maxlength="50" class="comment-author-input" style="max-width:100%;margin-bottom:4px;">
                         <p class="settings-hint" style="margin:0;font-size:0.78rem;">This name will appear in the menu (shown lowercased).</p>
                     </div>
                     <button type="button" class="comment-submit-btn" id="addCustomPageBtn" onclick="addCustomPage()">Add page</button>
                     <button type="button" class="comment-submit-btn" id="saveCustomPagesBtn" onclick="saveCustomPages(event)">Save</button>
+                    <span class="settings-status" id="customPagesStatus"></span>
                 </div>
-                <div style="min-height:28px;margin-top:6px;"><span class="settings-status" id="customPagesStatus" style="margin-left:0;"></span></div>
             </div>
 
             <!-- Theme -->
