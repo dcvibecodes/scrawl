@@ -125,8 +125,8 @@ router.get('/settings', requireOwner, (req, res) => {
                     </div>
                     <button type="button" class="comment-submit-btn" id="addCustomPageBtn" onclick="addCustomPage()">Add page</button>
                     <button type="button" class="comment-submit-btn" id="saveCustomPagesBtn" onclick="saveCustomPages(event)">Save</button>
-                    <span class="settings-status" id="customPagesStatus"></span>
                 </div>
+                <div style="min-height:28px;margin-top:6px;"><span class="settings-status" id="customPagesStatus" style="margin-left:0;"></span></div>
             </div>
 
             <!-- Theme -->
