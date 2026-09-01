@@ -411,7 +411,6 @@ font-weight: normal;
 .settings-option label.settings-disabled input { cursor: not-allowed; }
 .settings-desc { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
 .settings-status { font-size: 0.85rem; color: var(--text-muted); margin-left: 10px; display:inline-flex; align-items:center; line-height:1.4; min-height:28px; }
-#customPagesAdd .comment-submit-btn { margin-top:0; }
 .footer-editor {
     min-height: 3.2em;
     height: auto;
