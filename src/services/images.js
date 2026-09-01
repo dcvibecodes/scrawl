@@ -116,6 +116,7 @@ async function reconcileOrphans() {
     // settings lives in a flat file, not SQLite
     const { getSettings } = require('../config');
     addRefs(getSettings().customLandingContent || '');
+    (getSettings().customPages || []).forEach(function(p){ addRefs(p.content || ''); });
 
     const cutoff = Date.now() - ORPHAN_GRACE_MS;
     let removed = 0;

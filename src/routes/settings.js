@@ -39,8 +39,15 @@ router.get('/settings', requireOwner, (req, res) => {
                         <span class="settings-desc">A single landing page of your own content, shown as your home page.</span>
                     </label>
                 </div>
+                <button type="button" class="comment-submit-btn" onclick="saveSettings(event)">Save</button>
+                <span class="settings-status" id="landingStatus"></span>
+            </div>
+
+            <!-- Owner Home -->
+            <div class="settings-section">
+                <h3>Owner Home Page</h3>
+                <p class="settings-hint">Where you land when you open the app, instead of the public landing page.</p>
                 <div class="settings-option">
-                    <p class="settings-hint" style="margin-bottom:8px;">Your own home page (owner only) — where you land when you open the app, instead of the public landing page.</p>
                     <label>
                         <input type="radio" name="ownerHome" value="default" ${settings.ownerHome === 'default' || !settings.ownerHome ? 'checked' : ''}>
                         Same as visitors
@@ -57,6 +64,14 @@ router.get('/settings', requireOwner, (req, res) => {
                         <span class="settings-desc">Land directly on your articles list, ready to write.</span>
                     </label>
                 </div>
+                <button type="button" class="comment-submit-btn" onclick="saveSettings(event)">Save</button>
+                <span class="settings-status" id="ownerHomeStatus"></span>
+            </div>
+
+            <!-- Content -->
+            <div class="settings-section">
+                <h3>Content</h3>
+                <p class="settings-hint">Control which sections are visible on your site.</p>
                 <div class="settings-option">
                     <label>
                         <input type="checkbox" id="postsEnabled" ${settings.postsEnabled ? 'checked' : ''}>
@@ -69,6 +84,14 @@ router.get('/settings', requireOwner, (req, res) => {
                         <span class="settings-desc">Show your long-form articles. Disabling hides articles from the menu and home page.</span>
                     </label>
                 </div>
+                <button type="button" class="comment-submit-btn" onclick="saveSettings(event)">Save</button>
+                <span class="settings-status" id="contentStatus"></span>
+            </div>
+
+            <!-- Features -->
+            <div class="settings-section">
+                <h3>Features</h3>
+                <p class="settings-hint">Toggle interactive features on your site.</p>
                 <div class="settings-option">
                     <label>
                         <input type="checkbox" id="commentsOnPostsEnabled" ${settings.commentsOnPostsEnabled ? 'checked' : ''}>
@@ -85,6 +108,24 @@ router.get('/settings', requireOwner, (req, res) => {
                         Enable contact page
                         <span class="settings-desc">Show your contact page so visitors can send you messages. Disabling hides it from the menu (messages are never deleted).</span>
                     </label>
+                </div>
+                <button type="button" class="comment-submit-btn" onclick="saveSettings(event)">Save</button>
+                <span class="settings-status" id="featuresStatus"></span>
+            </div>
+
+            <!-- Custom Pages -->
+            <div class="settings-section">
+                <h3>Custom Pages <span id="customPagesCount" style="font-weight:normal;color:var(--text-muted);font-size:0.85rem;"></span></h3>
+                <p class="settings-hint">Add up to 5 pages with your own content. Each appears in the menu after Home and before Articles.</p>
+                <div id="customPagesList" style="margin-top:12px;"></div>
+                <div id="customPagesAdd" style="margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:180px;">
+                        <input type="text" id="newCustomPageName" placeholder="e.g. About" maxlength="50" class="comment-author-input" style="max-width:100%;margin-bottom:4px;">
+                        <p class="settings-hint" style="margin:0;font-size:0.78rem;">This name will appear in the menu (shown lowercased).</p>
+                    </div>
+                    <button type="button" class="comment-submit-btn" id="addCustomPageBtn" onclick="addCustomPage()">Add page</button>
+                    <button type="button" class="comment-submit-btn" id="saveCustomPagesBtn" onclick="saveCustomPages(event)">Save</button>
+                    <span class="settings-status" id="customPagesStatus"></span>
                 </div>
             </div>
 
@@ -111,8 +152,14 @@ router.get('/settings', requireOwner, (req, res) => {
                         Baby Pink
                         <span class="settings-desc">Soft pastel pink-lavender with plum text.</span>
                     </label>
+                    <label>
+                        <input type="radio" name="lightTheme" value="alice" ${settings.lightTheme === 'alice' ? 'checked' : ''}>
+                        <span style="display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:4px;background:#f0f8ff;border:1px solid var(--separator-color);"></span>
+                        Alice Blue
+                        <span class="settings-desc">Very light sky blue — airy and calm.</span>
+                    </label>
                 </div>
-                <button type="button" class="comment-submit-btn" onclick="saveTheme()">Save Theme</button>
+                <button type="button" class="comment-submit-btn" onclick="saveTheme()">Save</button>
                 <span class="settings-status" id="themeStatus"></span>
             </div>
 
@@ -121,7 +168,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <h3>Edit Title</h3>
                 <p class="settings-hint">The title shown at the top of your site and in the browser tab.</p>
                 <input type="text" id="settingsTitle" value="${escapeHtml(blogTitle)}" class="comment-author-input" style="max-width:100%;">
-                <button type="button" class="comment-submit-btn" onclick="saveTitle()">Save Title</button>
+                <button type="button" class="comment-submit-btn" onclick="saveTitle()">Save</button>
                 <span class="settings-status" id="titleStatus"></span>
             </div>
 
@@ -130,7 +177,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <h3>Account</h3>
                 <p class="settings-hint">${ownerUser ? `Your login username is <b>${escapeHtml(ownerUser)}</b>. ` : 'No username yet — '}logging in requires this username and your password${ownerUser ? '' : ' once it\'s saved'}.</p>
                 <input type="text" id="settingsUsername" value="${escapeHtml(ownerUser)}" placeholder="your-username" required minlength="3" maxlength="30" autocomplete="username" class="comment-author-input" style="max-width:100%;">
-                <button type="button" class="comment-submit-btn" onclick="saveUsername()">Save Username</button>
+                <button type="button" class="comment-submit-btn" onclick="saveUsername()">Save</button>
                 <span class="settings-status" id="usernameStatus"></span>
             </div>
 
@@ -139,7 +186,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 <h3>Edit Name</h3>
                 <p class="settings-hint">Your display name, shown on your comments.</p>
                 <input type="text" id="settingsName" value="${escapeHtml(ownerName)}" class="comment-author-input" style="max-width:100%;">
-                <button type="button" class="comment-submit-btn" onclick="saveName()">Save Name</button>
+                <button type="button" class="comment-submit-btn" onclick="saveName()">Save</button>
                 <span class="settings-status" id="nameStatus"></span>
             </div>
 
@@ -154,7 +201,7 @@ router.get('/settings', requireOwner, (req, res) => {
                 </div>
                 <div id="settingsFooter" class="article-content-editor footer-editor" contenteditable="true" data-placeholder="Footer text...">${copyright}</div>
                 <div class="char-counter" id="footer-char-counter">0 / 2000 characters</div>
-                <button type="button" class="comment-submit-btn" onclick="saveFooter()">Save Footer</button>
+                <button type="button" class="comment-submit-btn" onclick="saveFooter()">Save</button>
                 <span class="settings-status" id="footerStatus"></span>
             </div>
 
@@ -262,10 +309,10 @@ router.get('/settings', requireOwner, (req, res) => {
             if (btn) { btn.textContent = label; btn.disabled = !!disabled; }
         }
 
-        function saveSettings() {
+        function saveSettings(e) {
             var landingPage = document.querySelector('input[name="landingPage"]:checked').value;
             var ownerHome = document.querySelector('input[name="ownerHome"]:checked').value;
-            var btn = saveBtn;
+            var btn = (e && e.target) ? e.target : (typeof event !== 'undefined' ? event.target : null);
             var original = btn ? btn.textContent : '';
             setBtn(btn, 'Saving...', true);
             fetch('/api/settings', {
@@ -490,14 +537,196 @@ router.get('/settings', requireOwner, (req, res) => {
             });
         }
 
-        // Save settings button
-        var saveBtn = document.createElement('button');
-        saveBtn.type = 'button';
-        saveBtn.className = 'comment-submit-btn';
-        saveBtn.textContent = 'Save Settings';
-        saveBtn.style.marginTop = '10px';
-        saveBtn.addEventListener('click', saveSettings);
-        document.querySelector('.settings-section').appendChild(saveBtn);
+        // Custom Pages
+        var customPagesData = ${JSON.stringify(settings.customPages || []).replace(/</g, '\\u003c')};
+        var MAX_CUSTOM_PAGES = 5;
+        function escapeCustomHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function renderCustomPages(){
+            var list = document.getElementById('customPagesList');
+            var countEl = document.getElementById('customPagesCount');
+            var addBtn = document.getElementById('addCustomPageBtn');
+            var addWrap = document.getElementById('customPagesAdd');
+            if(!list) return;
+            countEl.textContent = '(' + customPagesData.length + '/' + MAX_CUSTOM_PAGES + ')';
+            if(customPagesData.length >= MAX_CUSTOM_PAGES){
+                if(addWrap) addWrap.style.display = 'none';
+            } else {
+                if(addWrap) addWrap.style.display = '';
+                if(addBtn) addBtn.disabled = false;
+            }
+            if(customPagesData.length === 0){
+                list.innerHTML = '<p class="settings-hint" style="font-size:0.85rem;">No custom pages yet. Add one below.</p>';
+                return;
+            }
+            var html = '';
+            for(var i=0;i<customPagesData.length;i++){
+                var p = customPagesData[i];
+                var upDisabled = i===0 ? ' disabled style="opacity:0.35;cursor:not-allowed;"' : '';
+                var downDisabled = i===customPagesData.length-1 ? ' disabled style="opacity:0.35;cursor:not-allowed;"' : '';
+                html += '<div class="custom-pages-row">'
+                    + '<div class="custom-pages-input-wrap">'
+                    + '<input type="text" value="' + escapeCustomHtml(p.name) + '" data-id="' + escapeCustomHtml(p.id) + '" maxlength="50" class="comment-author-input custom-page-name-input" style="max-width:100%;">'
+                    + '</div>'
+                    + '<div class="custom-pages-actions">'
+                    + '<a href="/p/' + escapeCustomHtml(p.id) + '" target="_blank" class="back-link">view</a>'
+                    + '<a href="/p/' + escapeCustomHtml(p.id) + '/edit" class="edit-link">edit</a>'
+                    + '<button type="button" class="delete-btn" onclick="deleteCustomPage(\\'' + escapeCustomHtml(p.id).replace(/\'/g, "\\'") + '\\', this)">delete</button>'
+                    + '<span class="custom-pages-sort">'
+                    + '<button type="button" onclick="moveCustomPage(' + i + ',-1)"' + upDisabled + ' title="Move up">&uarr;</button>'
+                    + '<button type="button" onclick="moveCustomPage(' + i + ',1)"' + downDisabled + ' title="Move down">&darr;</button>'
+                    + '</span>'
+                    + '</div>'
+                    + '</div>';
+            }
+            list.innerHTML = html;
+        }
+        function addCustomPage(){
+            var input = document.getElementById('newCustomPageName');
+            var name = input ? input.value.trim() : '';
+            var btn = document.getElementById('addCustomPageBtn');
+            if(!name){ setStatus('customPagesStatus','Name is required.',true); if(input) input.focus(); return; }
+            if(customPagesData.length >= MAX_CUSTOM_PAGES){ setStatus('customPagesStatus','Maximum '+MAX_CUSTOM_PAGES+' pages.',true); return; }
+            var original = btn ? btn.textContent : '';
+            setBtn(btn,'Adding...',true);
+            fetch('/api/custom-pages',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ name: name, content: '' })
+            }).then(function(r){ return r.json(); }).then(function(data){
+                if(data.success){
+                    customPagesData.push({ id: data.id, name: name, content: '' });
+                    if(input) input.value='';
+                    renderCustomPages();
+                    rebuildCustomPageMenus();
+                    setBtn(btn, original, false);
+                    setStatus('customPagesStatus','',false);
+                } else {
+                    setBtn(btn,'Failed',false);
+                    setStatus('customPagesStatus', data.error||'Failed', true);
+                    setTimeout(function(){ setBtn(btn, original, false); },2000);
+                }
+            }).catch(function(){
+                setBtn(btn,'Failed',false);
+                setTimeout(function(){ setBtn(btn, original, false); },2000);
+            });
+        }
+        function rebuildCustomPageMenus(){
+            var containers = document.querySelectorAll('#menuDropdown, #mobileMenu');
+            containers.forEach(function(container){
+                var existing = container.querySelectorAll('a[data-menu="custom-page"]');
+                existing.forEach(function(el){ el.remove(); });
+                var homeLink = container.querySelector('a[href="/"]');
+                var insertAfter = homeLink;
+                customPagesData.forEach(function(p){
+                    var a = document.createElement('a');
+                    a.href = '/p/' + p.id;
+                    a.setAttribute('data-menu','custom-page');
+                    a.textContent = String(p.name).toLowerCase();
+                    if(insertAfter && insertAfter.nextSibling){
+                        insertAfter.parentNode.insertBefore(a, insertAfter.nextSibling);
+                    } else if(insertAfter){
+                        insertAfter.parentNode.appendChild(a);
+                    } else {
+                        container.prepend(a);
+                    }
+                    insertAfter = a;
+                });
+            });
+        }
+        function saveCustomPages(e){
+            var btn = (e && e.target) ? e.target : (typeof event !== 'undefined' ? event.target : null);
+            var inputs = document.querySelectorAll('.custom-page-name-input');
+            var changed = [];
+            var hasEmpty = false;
+            var emptyInput = null;
+            inputs.forEach(function(input){
+                var id = input.getAttribute('data-id');
+                var newName = input.value.trim();
+                var page = customPagesData.find(function(p){ return p.id===id; });
+                if(!page) return;
+                if(!newName){ hasEmpty = true; emptyInput = input; }
+                else if(page.name !== newName){ changed.push({ id:id, newName:newName, input:input, page:page }); }
+            });
+            if(hasEmpty){
+                setStatus('customPagesStatus','Name cannot be empty.',true);
+                if(emptyInput){
+                    var foundEmpty = customPagesData.find(function(p){ return p.id===emptyInput.getAttribute('data-id'); });
+                    if(foundEmpty) emptyInput.value = foundEmpty.name;
+                    emptyInput.focus();
+                }
+                return;
+            }
+            if(changed.length===0){ setStatus('customPagesStatus','No changes to save.',false); return; }
+            var original = btn ? btn.textContent : '';
+            setBtn(btn,'Saving...',true);
+            var promises = changed.map(function(item){
+                return fetch('/api/custom-pages/' + encodeURIComponent(item.id),{
+                    method:'PUT',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ name: item.newName })
+                }).then(function(r){ return r.json().then(function(data){ return { item:item, data:data }; }); });
+            });
+            Promise.all(promises).then(function(results){
+                var failed = results.filter(function(r){ return !r.data.success; });
+                if(failed.length===0){
+                    changed.forEach(function(c){ c.page.name = c.newName; });
+                    rebuildCustomPageMenus();
+                    setBtn(btn,'Saved',false);
+                    setTimeout(function(){ renderCustomPages(); setStatus('customPagesStatus','',false); setBtn(btn, original, false); }, 800);
+                } else {
+                    var firstFail = failed[0];
+                    setBtn(btn,'Failed',false);
+                    setStatus('customPagesStatus', firstFail.data.error||'Failed', true);
+                    // revert failed inputs
+                    failed.forEach(function(r){ r.item.input.value = r.item.page.name; });
+                    // also commit successful ones
+                    results.filter(function(r){ return r.data.success; }).forEach(function(r){ r.item.page.name = r.item.newName; });
+                    rebuildCustomPageMenus();
+                    renderCustomPages();
+                    setTimeout(function(){ setBtn(btn, original, false); },2000);
+                }
+            }).catch(function(){
+                setBtn(btn,'Failed',false);
+                setStatus('customPagesStatus','Failed',true);
+                setTimeout(function(){ setBtn(btn, original, false); },2000);
+            });
+        }
+        function deleteCustomPage(id, el){
+            if(el.dataset.confirming==='true'){
+                el.textContent='deleting...';
+                fetch('/api/custom-pages/' + encodeURIComponent(id),{ method:'DELETE' })
+                .then(function(r){ return r.json(); }).then(function(data){
+                    if(data.success){
+                        customPagesData = customPagesData.filter(function(p){ return p.id!==id; });
+                        renderCustomPages();
+                        rebuildCustomPageMenus();
+                    } else { el.textContent='delete'; el.dataset.confirming=''; setStatus('customPagesStatus', data.error||'Failed', true); }
+                }).catch(function(){ el.textContent='delete'; el.dataset.confirming=''; });
+                return;
+            }
+            el.textContent='confirm?';
+            el.dataset.confirming='true';
+            setTimeout(function(){ if(el.dataset.confirming==='true'){ el.textContent='delete'; el.dataset.confirming=''; } },3000);
+        }
+        function moveCustomPage(index, dir){
+            var newIndex = index + dir;
+            if(newIndex<0 || newIndex>=customPagesData.length) return;
+            var order = customPagesData.map(function(p){ return p.id; });
+            var tmp = order[index]; order[index]=order[newIndex]; order[newIndex]=tmp;
+            fetch('/api/custom-pages/reorder',{
+                method:'PUT',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ order: order })
+            }).then(function(r){ return r.json(); }).then(function(data){
+                if(data.success){
+                    var moved = customPagesData.splice(index,1)[0];
+                    customPagesData.splice(newIndex,0,moved);
+                    renderCustomPages();
+                    rebuildCustomPageMenus();
+                } else { setStatus('customPagesStatus', data.error||'Failed', true); }
+            }).catch(function(){ setStatus('customPagesStatus','Failed',true); });
+        }
+        renderCustomPages();
         </script>
     `;
 
@@ -526,7 +755,7 @@ router.post('/api/settings', requireOwner, (req, res) => {
     if (typeof commentsOnPostsEnabled === 'boolean') settings.commentsOnPostsEnabled = commentsOnPostsEnabled;
     if (typeof commentsOnArticlesEnabled === 'boolean') settings.commentsOnArticlesEnabled = commentsOnArticlesEnabled;
     if (typeof contactEnabled === 'boolean') settings.contactEnabled = contactEnabled;
-    if (lightTheme === 'sepia' || lightTheme === 'white' || lightTheme === 'pink') {
+    if (lightTheme === 'sepia' || lightTheme === 'white' || lightTheme === 'pink' || lightTheme === 'alice') {
         settings.lightTheme = lightTheme;
     }
     saveSettings(settings);

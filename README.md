@@ -1,6 +1,6 @@
 # Scrawl
 
-**Version 4.6.3**
+**Version 4.7.0**
 
 A minimalist blogging platform for quick posts, long-form articles, and reader discussion.
 
@@ -118,7 +118,8 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 - Editable owner display name (menu → edit name) — propagates to all comments
 - Editable footer/copyright text (menu → edit footer)
 - Owner home page — choose where you (the owner) land when opening the app (Same as visitors / Posts / Articles), independent of the public landing page
-- Light and dark themes (preference saved in browser)
+- Custom Pages — up to 5 standalone pages (name + rich content + images) at `/p/:id`, managed in Settings → Custom Pages, shown in menu after Home
+- Light and dark themes (preference saved in browser) — Sepia (default), White, Baby Pink (`#FDF2FF`), Alice Blue (`#F0F8FF`)
 - Light theme by default
 
 ### Authentication
@@ -188,6 +189,9 @@ Scrawl started as a simple microblog — a single-file scratchpad for quick thou
 | `/sitemap.xml` | XML sitemap |
 | `/api/posts` | JSON API for all posts |
 | `/api/export` | Full Markdown export (owner) |
+| `/p/:id` | Custom page (public view) |
+| `/p/:id/edit` | Edit custom page (owner) |
+| `/api/custom-pages` | Custom pages CRUD (owner) |
 | `/api/comments` | Comment submission endpoint |
 | `/login` | Owner login |
 | `/setup` | First-time password setup |
@@ -270,6 +274,20 @@ Added threaded reader comments with moderation, owner identity (configurable dis
 ---
 
 ## Changelog
+
+### Version 4.7.0
+
+#### Added
+
+- **Custom Pages** — add up to 5 standalone pages with their own rich-text content (same composer as articles, including images, drag-drop/paste). Each page has a name (50 chars, shown lowercased in menu) and URL `/p/:id`, appears in the menu after Home before Articles. Settings → Custom Pages lets you Add, batch-rename (edit any names + Save), delete (2-step confirm), and reorder with ↑↓ arrows. Menu updates live without refresh; order is the array order in `settings.json` (`customPages[]`, `MAX_CUSTOM_PAGES=5`, `src/routes/customPages.js`, `src/config.js:19`). Public view at `/p/:id` and owner edit at `/p/:id/edit` (save via `PUT /api/custom-pages/:id`).
+- **Alice Blue theme** — fourth light theme `Alice Blue` (`#F0F8FF` aliceblue) alongside Sepia/White/Baby Pink. Very light sky blue with navy text (`#1a2e44`) for a calm airy look. Select in Settings → Theme, live preview via `data-light="alice"` (`public/styles.css:46-53`, `src/templates/layout.js:7-8`).
+
+#### Changed
+
+- **Settings polish** — Landing Page section split into 4: *Landing Page* (public home), *Owner Home Page* (your private landing), *Content* (Enable posts/articles), *Features* (Enable comments/contact) — each with its own `Save` (button feedback `Saving…`→`Saved`, muted status auto-dismiss 2s, `src/routes/settings.js:21-114`). Custom Pages `Save` sits next to `Add page`, batches all renames, validates non-empty, shows muted `No changes to save.` (auto-dismiss, vertically centered `public/styles.css:413-415`, `src/routes/settings.js:121,653`) — replaces per-row Save and per-row auto-save.
+- **All Save buttons unified to “Save”** — Theme/Title/Account/Name/Footer now say `Save` instead of `Save Theme` etc. (`src/routes/settings.js:156,165,174,183,198`).
+- **Custom Pages row alignment** — view/edit/delete and ↑↓ arrows share `display:inline-flex; align-items:center; line-height:1` (`public/styles.css:418-427`), so arrows are perfectly centered with text actions. Reorder and delete also rebuild the menu live (`rebuildCustomPageMenus()`).
+- **Cache-bust** — stylesheet bumped to `v30` (`src/templates/layout.js:69`) so new theme loads immediately.
 
 ### Version 4.6.3
 

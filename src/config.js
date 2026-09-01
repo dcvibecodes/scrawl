@@ -16,6 +16,7 @@ const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const BCRYPT_ROUNDS = 12;
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 const DEFAULT_BLOG_TITLE = 'Scrawl';
+const MAX_CUSTOM_PAGES = 5;
 const DEFAULT_SETTINGS = {
     landingPage: 'posts',      // 'posts' | 'articles' | 'custom'  (public homepage for visitors)
     ownerHome: 'default',      // 'default' | 'posts' | 'articles' (owner's landing page)
@@ -24,8 +25,9 @@ const DEFAULT_SETTINGS = {
     commentsOnPostsEnabled: true,
     commentsOnArticlesEnabled: true,
     contactEnabled: true,
-    lightTheme: 'sepia',       // 'sepia' | 'white' | 'pink'  (site-wide light palette; dark mode is per-visitor)
-    customLandingContent: ''
+    lightTheme: 'sepia',       // 'sepia' | 'white' | 'pink' | 'alice'  (site-wide light palette; dark mode is per-visitor)
+    customLandingContent: '',
+    customPages: []            // up to 5 { id, name, content } — order = array order, URL = /p/:id
 };
 
 function getSessionSecret() {
@@ -112,8 +114,21 @@ function getSettings() {
     }
 }
 
+function getCustomPages() {
+    const s = getSettings();
+    return Array.isArray(s.customPages) ? s.customPages : [];
+}
+
 function saveSettings(settings) {
     const merged = { ...DEFAULT_SETTINGS, ...settings };
+    // normalize customPages: keep at most MAX, ensure shape
+    if (Array.isArray(merged.customPages)) {
+        merged.customPages = merged.customPages.slice(0, MAX_CUSTOM_PAGES).map(function(p) {
+            return { id: String(p.id || ''), name: String(p.name || '').trim().slice(0, 50), content: String(p.content || '') };
+        }).filter(function(p) { return p.id && p.name; });
+    } else {
+        merged.customPages = [];
+    }
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf8');
 }
 
@@ -128,6 +143,7 @@ module.exports = {
     SETTINGS_FILE,
     BCRYPT_ROUNDS,
     SESSION_MAX_AGE,
+    MAX_CUSTOM_PAGES,
     DEFAULT_BLOG_TITLE,
     DEFAULT_SETTINGS,
     getSessionSecret,
@@ -144,5 +160,6 @@ module.exports = {
     getOwnerUser,
     saveOwnerUser,
     getSettings,
+    getCustomPages,
     saveSettings
 };

@@ -43,6 +43,14 @@ html { width: 100%; overflow-x: clip; }
     --separator-color: #f8e9fb;
     --dp-color: #3d2540;
 }
+[data-light="alice"] {
+    --bg-body: #f0f8ff;
+    --bg-card: #f0f8ff;
+    --text-main: #1a2e44;
+    --text-muted: #6a7d8f;
+    --separator-color: #dbe9f2;
+    --dp-color: #1a2e44;
+}
 [data-theme="dark"] {
     --bg-body: #000000;
     --bg-card: #000000;
@@ -402,7 +410,9 @@ font-weight: normal;
 .settings-option label.settings-disabled { opacity: 0.4; cursor: not-allowed; }
 .settings-option label.settings-disabled input { cursor: not-allowed; }
 .settings-desc { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
-.settings-status { font-size: 0.85rem; color: var(--text-muted); margin-left: 10px; }
+.settings-status { font-size: 0.85rem; color: var(--text-muted); margin-left: 10px; display:inline-flex; align-items:center; line-height:1.4; min-height:28px; }
+#customPagesAdd .comment-submit-btn { margin-top:0; }
+#customPagesAdd .settings-status { align-self:center; }
 .footer-editor {
     min-height: 3.2em;
     height: auto;
@@ -414,6 +424,17 @@ font-weight: normal;
 .footer-editor a { color: var(--text-main); text-decoration: underline; }
 .footer-editor a:hover { opacity: 0.7; }
 .footer-editor:empty:before { content: attr(data-placeholder); color: var(--text-muted); opacity: 0.6; }
+
+/* Custom Pages — action row alignment */
+.custom-pages-row { display:flex; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--separator-color); flex-wrap:wrap; }
+.custom-pages-input-wrap { flex:1; min-width:160px; display:flex; gap:8px; align-items:center; }
+.custom-pages-actions { display:flex; gap:10px; align-items:center; flex-shrink:0; flex-wrap:wrap; }
+.custom-pages-actions a,
+.custom-pages-actions button { font-size:0.85rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; padding:0; margin:0; vertical-align:middle; }
+.custom-pages-actions .custom-page-save-btn { padding:4px 10px !important; border-radius:14px; font-size:0.78rem !important; line-height:1.4 !important; margin:0 !important; }
+.custom-pages-sort { display:inline-flex; gap:2px; align-items:center; margin-left:4px; }
+.custom-pages-sort button { background:none; border:none; color:var(--text-muted); padding:0 3px; margin:0; font-size:0.85rem; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; }
+.custom-pages-sort button:hover { color:var(--text-main); }
 
 /* Owner comments management page */
 .comment-mgmt-item { padding: 12px 0; border-bottom: 1px solid var(--separator-color); }

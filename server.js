@@ -14,6 +14,7 @@ const contactRoutes = require('./src/routes/contact');
 const feedsRoutes = require('./src/routes/feeds');
 const settingsRoutes = require('./src/routes/settings');
 const imagesRoutes = require('./src/routes/images');
+const customPagesRoutes = require('./src/routes/customPages');
 const imageStore = require('./src/services/images');
 
 const app = express();
@@ -42,6 +43,7 @@ app.use(contactRoutes);
 app.use(feedsRoutes);
 app.use(settingsRoutes);
 app.use(imagesRoutes);
+app.use(customPagesRoutes);
 
 // --- Start Server ---
 // Only listen when run directly (not when imported by tests)

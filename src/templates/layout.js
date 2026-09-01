@@ -4,8 +4,8 @@ const { getCopyright, getBlogTitle, getSettings } = require('../config');
 const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, copyright, meta, pendingComments, pendingMessages, showRandom }) =>  {
     const copyrightText = copyright !== undefined ? copyright : getCopyright();
     const settings = getSettings();
-    const lightTheme = ['white', 'pink'].includes(settings.lightTheme) ? settings.lightTheme : '';
-    const lightThemeBg = { sepia: '#f5efe6', white: '#ffffff', pink: '#FDF2FF' }[settings.lightTheme] || '#f5efe6';
+    const lightTheme = ['white', 'pink', 'alice'].includes(settings.lightTheme) ? settings.lightTheme : '';
+    const lightThemeBg = { sepia: '#f5efe6', white: '#ffffff', pink: '#FDF2FF', alice: '#F0F8FF' }[settings.lightTheme] || '#f5efe6';
     const showHome = true; // Home (landing page) always exists
     const showPosts = settings.postsEnabled;
     const showArticles = settings.articlesEnabled;
@@ -14,6 +14,10 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     const showRssArticles = settings.articlesEnabled;
     const showContact = settings.contactEnabled;
     const showDice = showRandom && settings.postsEnabled;
+    const customPages = Array.isArray(settings.customPages) ? settings.customPages : [];
+    const customPageLinks = customPages.map(function(p){
+        return '<a href="/p/' + escapeHtml(p.id) + '" data-menu="custom-page">' + escapeHtml(String(p.name||'').toLowerCase()) + '</a>';
+    }).join('');
     // Build social/SEO meta tags
     let metaTags = '';
     if (meta) {
@@ -62,7 +66,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-    <link rel="stylesheet" href="/styles.css?v=29">
+    <link rel="stylesheet" href="/styles.css?v=30">
     <script>(function(){var t=localStorage.getItem('theme');var b='${escapeHtml(lightThemeBg)}';if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');document.documentElement.style.backgroundColor='#000000';}else{document.documentElement.style.backgroundColor=b;}})()</script>
 </head>
 <body>
@@ -108,6 +112,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 </button>
                 <div class="menu-dropdown" id="menuDropdown">
                     <a href="/">home</a>
+                    ${customPageLinks}
                     ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
                     ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
                     ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
@@ -131,6 +136,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
                 </button>
                 <div class="menu-dropdown" id="menuDropdown">
                     <a href="/">home</a>
+                    ${customPageLinks}
                     ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
                     ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
                     ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
@@ -161,6 +167,7 @@ const layoutTemplate = ({ title, bodyContent, isOwner, blogTitle, searchQuery, c
     <div class="mobile-menu" id="mobileMenu">
         <button type="button" class="mobile-menu-close" id="mobileMenuClose">&times;</button>
         <a href="/">home</a>
+        ${customPageLinks}
         ${showArticles ? '<a href="/articles" data-menu="articles">articles</a>' : ''}
         ${showPosts ? '<a href="/posts" data-menu="posts">posts</a>' : ''}
         ${showArchive ? '<a href="/archive" class="menu-subitem" data-menu="archive">post archive</a>' : ''}
